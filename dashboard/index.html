@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DisputeForge — Pre-Dispute Intelligence</title>
+    <meta name="description" content="AI-powered pre-dispute deflection and evidence orchestration for Razorpay merchants">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <div class="logo-icon">🛡️</div>
+                <div>
+                    <h1 class="logo-text">DisputeForge</h1>
+                    <span class="logo-sub">Pre-Dispute Intelligence</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status-badge" id="modelStatus">
+                <span class="status-dot"></span>
+                <span>Checking...</span>
+            </div>
+            <button class="btn btn-primary" id="runAnalysisBtn" onclick="runBatchAnalysis()">
+                <span class="btn-icon">⚡</span> Run Batch Analysis
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Metrics Cards -->
+        <section class="metrics-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="metric-label">Total Transactions</div>
+                <div class="metric-value" id="metricTotal">—</div>
+                <div class="metric-sub">Batch size</div>
+            </div>
+            <div class="metric-card metric-danger">
+                <div class="metric-label">Flagged High-Risk</div>
+                <div class="metric-value" id="metricFlagged">—</div>
+                <div class="metric-sub" id="metricFlaggedPct">—</div>
+            </div>
+            <div class="metric-card metric-success">
+                <div class="metric-label">Deflections Sent</div>
+                <div class="metric-value" id="metricDeflections">—</div>
+                <div class="metric-sub">Proactive outreach</div>
+            </div>
+            <div class="metric-card metric-info">
+                <div class="metric-label">Precision</div>
+                <div class="metric-value" id="metricPrecision">—</div>
+                <div class="metric-sub">Of flagged, actually disputed</div>
+            </div>
+            <div class="metric-card metric-warning">
+                <div class="metric-label">Recall</div>
+                <div class="metric-value" id="metricRecall">—</div>
+                <div class="metric-sub">Of disputes, caught early</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">F1 Score</div>
+                <div class="metric-value" id="metricF1">—</div>
+                <div class="metric-sub">Harmonic mean</div>
+            </div>
+        </section>
+
+        <!-- False Positive Cost Banner -->
+        <section class="fp-banner" id="fpBanner" style="display:none;">
+            <div class="fp-icon">⚖️</div>
+            <div class="fp-text">
+                <strong>False Positive Cost:</strong>
+                <span id="fpCostText">—</span>
+            </div>
+            <div class="fp-note">Honest metric: we show what we get wrong</div>
+        </section>
+
+        <!-- Confusion Matrix -->
+        <section class="two-col" id="detailSection" style="display:none;">
+            <div class="panel">
+                <h2 class="panel-title">Confusion Matrix</h2>
+                <div class="confusion-matrix">
+                    <div class="cm-corner"></div>
+                    <div class="cm-header">Pred: No</div>
+                    <div class="cm-header">Pred: Yes</div>
+                    <div class="cm-row-label">Actual: No</div>
+                    <div class="cm-cell cm-tn" id="cmTN">—</div>
+                    <div class="cm-cell cm-fp" id="cmFP">—</div>
+                    <div class="cm-row-label">Actual: Yes</div>
+                    <div class="cm-cell cm-fn" id="cmFN">—</div>
+                    <div class="cm-cell cm-tp" id="cmTP">—</div>
+                </div>
+                <div class="cm-legend">
+                    <span class="legend-item"><span class="legend-dot tn-dot"></span> True Neg</span>
+                    <span class="legend-item"><span class="legend-dot fp-dot"></span> False Pos</span>
+                    <span class="legend-item"><span class="legend-dot fn-dot"></span> False Neg</span>
+                    <span class="legend-item"><span class="legend-dot tp-dot"></span> True Pos</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">AI vs Deterministic Split</h2>
+                <div class="ai-split">
+                    <div class="split-item">
+                        <div class="split-badge deterministic">DETERMINISTIC</div>
+                        <div class="split-name">Risk Signal Extraction</div>
+                        <div class="split-reason">Clear rules, no ambiguity needed</div>
+                    </div>
+                    <div class="split-item">
+                        <div class="split-badge ml">ML (XGBoost)</div>
+                        <div class="split-name">Dispute Probability</div>
+                        <div class="split-reason">Tabular data → tree models > LLMs</div>
+                    </div>
+                    <div class="split-item">
+                        <div class="split-badge ml">ML (Multi-class)</div>
+                        <div class="split-name">Reason Code Prediction</div>
+                        <div class="split-reason">Classification on structured features</div>
+                    </div>
+                    <div class="split-item">
+                        <div class="split-badge deterministic">DETERMINISTIC</div>
+                        <div class="split-name">Deadline Tracking</div>
+                        <div class="split-reason">Calendar math, not judgment</div>
+                    </div>
+                    <div class="split-item">
+                        <div class="split-badge llm">LLM (Gemini)</div>
+                        <div class="split-name">Evidence Narrative</div>
+                        <div class="split-reason">Requires reasoning about context</div>
+                    </div>
+                    <div class="split-item">
+                        <div class="split-badge llm">LLM (Gemini)</div>
+                        <div class="split-name">Deflection Messages</div>
+                        <div class="split-reason">Requires empathy + personalization</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Transaction Results Table -->
+        <section class="panel" id="resultsPanel" style="display:none;">
+            <div class="panel-header">
+                <h2 class="panel-title">Transaction Analysis Results</h2>
+                <div class="filter-group">
+                    <button class="filter-btn active" onclick="filterResults('all')">All</button>
+                    <button class="filter-btn" onclick="filterResults('critical')">🔴 Critical</button>
+                    <button class="filter-btn" onclick="filterResults('high')">🟠 High</button>
+                    <button class="filter-btn" onclick="filterResults('medium')">🟡 Medium</button>
+                    <button class="filter-btn" onclick="filterResults('low')">🟢 Low</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Payment ID</th>
+                            <th>Amount</th>
+                            <th>Merchant</th>
+                            <th>Network</th>
+                            <th>Risk Score</th>
+                            <th>Risk Level</th>
+                            <th>Predicted Type</th>
+                            <th>Signals</th>
+                            <th>Ground Truth</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Detail Modal -->
+        <div class="modal-overlay" id="detailModal" style="display:none;" onclick="closeModal(event)">
+            <div class="modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Transaction Details</h2>
+                    <button class="modal-close" onclick="closeModal()">✕</button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Analyzing 270 transactions...</div>
+            <div class="loading-sub">Running 3-stage pipeline: Risk Signals → XGBoost → Evidence</div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div>DisputeForge — Built for <a href="https://razorpay.com/buildathon/" target="_blank">Razorpay AI Buildathon 2026</a> | Track 2: AI Risk Manager</div>
+        <div>The best chargeback is the one that never happens.</div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
