@@ -1,13 +1,101 @@
 /**
- * DisputeForge — Dashboard
+ * DisputeForge — Dashboard Application
  */
 
 let allResults = [];
 let batchMetrics = null;
+let isAnalyzingPipeline = false;
+
+// ── Preset Scenarios ──────────────────────────────────
+
+const PRESETS = {
+    friendly_fraud: {
+        payment_id: "pay_FF_992148",
+        order_id: "ord_88412",
+        customer_id: "cust_serial_412",
+        amount: 8500,
+        merchant_name: "QuickMart Electronics",
+        merchant_category: "electronics",
+        billing_descriptor: "QUICKMART ELEC",
+        descriptor_matches_brand: true,
+        card_network: "Visa",
+        card_country: "IN",
+        customer_city: "Mumbai",
+        is_digital_goods: false,
+        has_tracking: true,
+        tracking_number: "BLUEDART-8472910",
+        delivery_days: 3,
+        delivery_date: "2026-08-18",
+        delivery_confirmed: true,
+        days_since_delivery: 12,
+        contacted_support: false,
+        support_contacts_count: 0,
+        past_disputes: 3,
+        past_disputes_won: 0,
+        refund_requested: false,
+        refund_status: "none"
+    },
+    late_delivery: {
+        payment_id: "pay_LD_331049",
+        order_id: "ord_77190",
+        customer_id: "cust_urban_821",
+        amount: 2200,
+        merchant_name: "Urban Threads",
+        merchant_category: "apparel",
+        billing_descriptor: "URBAN THREADS",
+        descriptor_matches_brand: true,
+        card_network: "Mastercard",
+        card_country: "IN",
+        customer_city: "Bengaluru",
+        is_digital_goods: false,
+        has_tracking: true,
+        tracking_number: "DELHIVERY-99214",
+        delivery_days: 16,
+        delivery_date: "2026-08-30",
+        delivery_confirmed: true,
+        days_since_delivery: 1,
+        contacted_support: true,
+        support_contacts_count: 2,
+        past_disputes: 0,
+        past_disputes_won: 0,
+        refund_requested: true,
+        refund_status: "requested"
+    },
+    clean: {
+        payment_id: "pay_CL_109284",
+        order_id: "ord_10283",
+        customer_id: "cust_prime_102",
+        amount: 800,
+        merchant_name: "BookNook India",
+        merchant_category: "books",
+        billing_descriptor: "BOOKNOOK INDIA",
+        descriptor_matches_brand: true,
+        card_network: "RuPay",
+        card_country: "IN",
+        customer_city: "Delhi",
+        is_digital_goods: false,
+        has_tracking: true,
+        tracking_number: "EKART-1092834",
+        delivery_days: 3,
+        delivery_date: "2026-09-01",
+        delivery_confirmed: true,
+        days_since_delivery: 2,
+        contacted_support: false,
+        support_contacts_count: 0,
+        past_disputes: 0,
+        past_disputes_won: 0,
+        refund_requested: false,
+        refund_status: "none"
+    }
+};
 
 // ── Boot ─────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', checkHealth);
+document.addEventListener('DOMContentLoaded', () => {
+    checkHealth();
+    // Pre-select first scenario for immediate interactive preview
+    runPreset('friendly_fraud');
+});
 
 async function checkHealth() {
     const el = document.getElementById('modelStatus');
@@ -26,7 +114,207 @@ async function checkHealth() {
     }
 }
 
-// ── Analysis ─────────────────────────────────────────
+// ── Interactive Pipeline Demo ────────────────────────
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function runPreset(presetKey) {
+    if (isAnalyzingPipeline) return;
+    const txn = PRESETS[presetKey];
+    if (!txn) return;
+
+    // Update active preset button styling
+    document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+    const activeBtn = document.getElementById(`preset-${presetKey}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Show pipeline section
+    const pipeSec = document.getElementById('pipelineSection');
+    pipeSec.style.display = 'block';
+
+    // Populate transaction summary bar
+    setText('txnId', txn.payment_id);
+    setText('txnAmount', `₹${fmtNum(txn.amount)}`);
+    setText('txnMerchant', txn.merchant_name);
+    setText('txnNetwork', txn.card_network);
+    setText('txnDelivery', txn.delivery_confirmed ? `Delivered (${txn.delivery_days}d)` : 'In Transit');
+
+    isAnalyzingPipeline = true;
+
+    // Reset pipeline UI to pending
+    for (let i = 1; i <= 4; i++) {
+        const step = document.getElementById(`step${i}`);
+        const status = document.getElementById(`step${i}Status`);
+        const body = document.getElementById(`step${i}Body`);
+        step.className = 'pipe-step pending';
+        status.className = 'pipe-step-status';
+        status.innerHTML = '';
+        body.innerHTML = '';
+    }
+
+    try {
+        // Send to backend API for live computation
+        const res = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(txn)
+        });
+        const data = await res.json();
+
+        // ── Stage 1: Risk Signals (Rules)
+        await setStepRunning(1, 'Extracting signals…');
+        await sleep(240);
+        renderStep1(data.triggered_signals || []);
+        setStepDone(1, `${(data.triggered_signals || []).length} signals found`);
+
+        // ── Stage 2: ML Scoring (XGBoost)
+        await setStepRunning(2, 'Scoring via XGBoost…');
+        await sleep(220);
+        renderStep2(data.prediction || {});
+        setStepDone(2, `${((data.prediction?.dispute_probability || 0) * 100).toFixed(1)}% risk`);
+
+        // ── Stage 3a: Deflection (Proactive outreach)
+        await setStepRunning(3, 'Evaluating deflection…');
+        await sleep(200);
+        renderStep3(data.deflection, data.prediction);
+        if (data.deflection) {
+            setStepDone(3, `Generated (${data.deflection.channel})`);
+        } else {
+            setStepSkipped(3, 'Skipped (risk < 50%)');
+        }
+
+        // ── Stage 3b: Evidence Package (Reason-code Defense)
+        await setStepRunning(4, 'Compiling evidence package…');
+        await sleep(220);
+        renderStep4(data.evidence_package, data.prediction);
+        if (data.evidence_package) {
+            setStepDone(4, `Ready (${data.evidence_package.reason_code})`);
+        } else {
+            setStepSkipped(4, 'Skipped (risk < 60%)');
+        }
+
+    } catch (err) {
+        console.error('Preset analysis failed:', err);
+    } finally {
+        isAnalyzingPipeline = false;
+    }
+}
+
+async function setStepRunning(stepNum, label) {
+    const step = document.getElementById(`step${stepNum}`);
+    const status = document.getElementById(`step${stepNum}Status`);
+    step.className = 'pipe-step active';
+    status.className = 'pipe-step-status running';
+    status.innerHTML = `<span class="spin-mini"></span> ${label}`;
+}
+
+function setStepDone(stepNum, label) {
+    const step = document.getElementById(`step${stepNum}`);
+    const status = document.getElementById(`step${stepNum}Status`);
+    step.className = 'pipe-step done';
+    status.className = 'pipe-step-status complete';
+    status.innerHTML = `✓ ${label}`;
+}
+
+function setStepSkipped(stepNum, label) {
+    const step = document.getElementById(`step${stepNum}`);
+    const status = document.getElementById(`step${stepNum}Status`);
+    step.className = 'pipe-step';
+    status.className = 'pipe-step-status skipped';
+    status.innerHTML = `— ${label}`;
+}
+
+function renderStep1(signals) {
+    const body = document.getElementById('step1Body');
+    if (!signals.length) {
+        body.innerHTML = '<div class="pipe-empty-note">No abnormal risk signals triggered. Transaction follows clean purchasing baseline.</div>';
+        return;
+    }
+
+    const cards = signals.map(s => `
+        <div class="pipe-signal-card">
+            <span class="pipe-signal-desc">${esc(s.description)}</span>
+            <span class="dsignal dsignal--${s.severity}">${s.severity}</span>
+        </div>
+    `).join('');
+
+    body.innerHTML = `<div class="pipe-signal-grid">${cards}</div>`;
+}
+
+function renderStep2(pred) {
+    const body = document.getElementById('step2Body');
+    const prob = pred.dispute_probability || 0;
+    const lvl = pred.risk_level || 'low';
+    const disputeType = pred.predicted_dispute_type || 'none';
+
+    body.innerHTML = `
+        <div class="pipe-score-box">
+            <div class="pipe-score-val" style="color: ${color(lvl)}">${(prob * 100).toFixed(1)}%</div>
+            <div class="pipe-score-meta">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="risk-ind"><span class="risk-dot risk-dot--${lvl}"></span>${lvl.toUpperCase()} RISK</span>
+                    <span style="color:var(--c-text-3)">·</span>
+                    <span style="font-size:12px;color:var(--c-text-2)">Predicted type: <strong style="color:var(--c-text)">${disputeType}</strong></span>
+                </div>
+                <div style="font-size:11px;color:var(--c-text-3)">Model confidence: ${(pred.dispute_type_confidence * 100 || 0).toFixed(0)}% · Features evaluated: 14</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderStep3(deflection, pred) {
+    const body = document.getElementById('step3Body');
+    if (!deflection) {
+        body.innerHTML = `<div class="pipe-empty-note">No deflection required. Dispute probability (${((pred?.dispute_probability || 0) * 100).toFixed(1)}%) is below the 50% deflection threshold.</div>`;
+        return;
+    }
+
+    body.innerHTML = `
+        <div class="pipe-message-card">
+            <div class="pipe-message-header">
+                <span>Channel: <strong>${deflection.channel.toUpperCase()}</strong> · Send within: <strong>${deflection.timing?.send_within || '2 hours'}</strong></span>
+                <span>Tone: <strong>${deflection.tone}</strong></span>
+            </div>
+            <div style="font-size:11px;color:var(--c-text-3);margin-bottom:6px;">Subject: <span style="color:var(--c-text)">${esc(deflection.subject)}</span></div>
+            <div class="pipe-message-text">${esc(deflection.message)}</div>
+        </div>
+    `;
+}
+
+function renderStep4(evidence, pred) {
+    const body = document.getElementById('step4Body');
+    if (!evidence) {
+        body.innerHTML = `<div class="pipe-empty-note">No evidence package generated. Dispute probability (${((pred?.dispute_probability || 0) * 100).toFixed(1)}%) is below the 60% evidence preparation threshold.</div>`;
+        return;
+    }
+
+    const items = (evidence.evidence_checklist || []).map(i => `
+        <div class="devidence-item">
+            <span class="devidence-check">${i.available ? '✓' : '✗'}</span>
+            <span>${esc(i.item)}</span>
+            <span class="devidence-src">${esc(i.source)}</span>
+        </div>
+    `).join('');
+
+    body.innerHTML = `
+        <div class="dfield-grid" style="margin-bottom:12px;">
+            ${field('Reason code', `${evidence.reason_code} — ${evidence.reason_code_name}`)}
+            ${field('Network', evidence.network)}
+            ${field('Filing deadline', `${evidence.deadline_days} calendar days`)}
+            ${field('Evidence strength', `${evidence.evidence_strength?.rating || 'Strong'} (${((evidence.evidence_strength?.score || 0) * 100).toFixed(0)}%)`)}
+        </div>
+        <div style="margin-bottom:12px;">
+            <div class="dsection-heading">Compiled Evidence Checklist</div>
+            <div>${items}</div>
+        </div>
+        <div>
+            <div class="dsection-heading">Bank-Ready Narrative</div>
+            <div class="dpre">${esc(evidence.narrative)}</div>
+        </div>
+    `;
+}
+
+// ── Batch Analysis ───────────────────────────────────
 
 async function runBatchAnalysis() {
     const btn = document.getElementById('runAnalysisBtn');
@@ -45,14 +333,13 @@ async function runBatchAnalysis() {
         renderMetrics(batchMetrics);
         renderTable(allResults);
 
-        document.getElementById('emptyState').style.display = 'none';
-        document.getElementById('resultsContainer').style.display = 'block';
+        document.getElementById('batchResults').style.display = 'block';
         document.getElementById('detailSection').style.display = 'grid';
         document.getElementById('resultsPanel').style.display = 'block';
         document.getElementById('fpBanner').style.display = 'flex';
     } catch (err) {
         console.error(err);
-        alert('Analysis failed. Is the server running?');
+        alert('Batch analysis failed. Is the server running?');
     } finally {
         btn.disabled = false;
         loading.style.display = 'none';
@@ -242,9 +529,13 @@ function field(key, val) {
     return `<div class="dfield"><div class="dfield-key">${key}</div><div class="dfield-val">${val || '—'}</div></div>`;
 }
 
-function setText(id, v) { document.getElementById(id).textContent = v; }
+function setText(id, v) { 
+    const el = document.getElementById(id);
+    if (el) el.textContent = v; 
+}
+
 function pct(v) { return `${((v || 0) * 100).toFixed(1)}%`; }
-function fmtNum(n) { return Number(n).toLocaleString('en-IN'); }
+function fmtNum(n) { return Number(n || 0).toLocaleString('en-IN'); }
 
 function shortId(id) {
     if (!id) return '—';

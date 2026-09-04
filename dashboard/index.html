@@ -16,159 +16,214 @@
         <div class="nav-left">
             <span class="nav-wordmark">DisputeForge</span>
             <span class="nav-divider"></span>
-            <span class="nav-context">Batch Analysis</span>
+            <span class="nav-context" id="navContext">Pipeline Demo</span>
         </div>
         <div class="nav-right">
             <span class="nav-status" id="modelStatus" aria-live="polite">
                 <span class="nav-status-dot"></span>
                 Checking…
             </span>
-            <button class="nav-action" id="runAnalysisBtn" onclick="runBatchAnalysis()">
-                Run analysis
-            </button>
         </div>
     </nav>
 
     <main class="page">
 
-        <!-- Empty state (shown before first analysis) -->
-        <section class="empty-state" id="emptyState">
-            <div class="empty-state-inner">
-                <p class="empty-state-title">No analysis yet</p>
-                <p class="empty-state-desc">Run batch analysis on 270 synthetic transactions to see dispute predictions, deflection actions, and evidence packages.</p>
-                <button class="btn-run" onclick="runBatchAnalysis()">Run analysis</button>
+        <!-- ═══════════════════════════════════════════════
+             SECTION 1: Interactive Pipeline Demo
+             ═══════════════════════════════════════════════ -->
+        <section class="hero" id="heroSection">
+            <div class="hero-intro">
+                <h1 class="hero-title">Pre-dispute intelligence</h1>
+                <p class="hero-desc">Predict chargebacks before they happen. Deflect with proactive outreach. Prepare bank-ready evidence.</p>
+            </div>
+
+            <div class="presets">
+                <span class="presets-label">Try a scenario:</span>
+                <button class="preset" onclick="runPreset('friendly_fraud')" id="preset-friendly_fraud">
+                    <span class="preset-name">Friendly fraud</span>
+                    <span class="preset-desc">Customer got the package, files dispute anyway</span>
+                </button>
+                <button class="preset" onclick="runPreset('late_delivery')" id="preset-late_delivery">
+                    <span class="preset-name">Late delivery</span>
+                    <span class="preset-desc">Real issue, 16-day delay, support contacted</span>
+                </button>
+                <button class="preset" onclick="runPreset('clean')" id="preset-clean">
+                    <span class="preset-name">Clean transaction</span>
+                    <span class="preset-desc">Normal purchase, no risk signals</span>
+                </button>
             </div>
         </section>
 
-        <!-- Results (hidden until analysis runs) -->
-        <div id="resultsContainer" style="display:none">
+        <!-- Pipeline visualization (hidden until preset selected) -->
+        <section class="pipeline-section" id="pipelineSection" style="display:none">
 
-            <!-- Stat row -->
-            <section class="stat-row" id="statRow">
-                <div class="stat">
-                    <span class="stat-value" id="metricTotal">—</span>
-                    <span class="stat-label">Transactions</span>
-                </div>
-                <div class="stat-sep"></div>
-                <div class="stat">
-                    <span class="stat-value stat-value--warn" id="metricFlagged">—</span>
-                    <span class="stat-label">Flagged</span>
-                </div>
-                <div class="stat-sep"></div>
-                <div class="stat">
-                    <span class="stat-value stat-value--good" id="metricDeflections">—</span>
-                    <span class="stat-label">Deflections</span>
-                </div>
-                <div class="stat-sep"></div>
-                <div class="stat">
-                    <span class="stat-value" id="metricPrecision">—</span>
-                    <span class="stat-label">Precision</span>
-                </div>
-                <div class="stat-sep"></div>
-                <div class="stat">
-                    <span class="stat-value" id="metricRecall">—</span>
-                    <span class="stat-label">Recall</span>
-                </div>
-                <div class="stat-sep"></div>
-                <div class="stat">
-                    <span class="stat-value" id="metricF1">—</span>
-                    <span class="stat-label">F1</span>
-                </div>
-            </section>
+            <!-- Transaction summary bar -->
+            <div class="txn-bar" id="txnBar">
+                <div class="txn-bar-item"><span class="txn-bar-key">Payment</span><span class="txn-bar-val" id="txnId">—</span></div>
+                <div class="txn-bar-item"><span class="txn-bar-key">Amount</span><span class="txn-bar-val" id="txnAmount">—</span></div>
+                <div class="txn-bar-item"><span class="txn-bar-key">Merchant</span><span class="txn-bar-val" id="txnMerchant">—</span></div>
+                <div class="txn-bar-item"><span class="txn-bar-key">Network</span><span class="txn-bar-val" id="txnNetwork">—</span></div>
+                <div class="txn-bar-item"><span class="txn-bar-key">Delivery</span><span class="txn-bar-val" id="txnDelivery">—</span></div>
+            </div>
 
-            <!-- FP cost callout -->
-            <aside class="callout" id="fpBanner" style="display:none">
-                <span class="callout-label">False positive cost</span>
-                <span class="callout-value" id="fpCostText">—</span>
-            </aside>
-
-            <!-- Two-up: Confusion Matrix + AI split -->
-            <div class="grid-2" id="detailSection" style="display:none">
-                <section class="card">
-                    <h2 class="card-heading">Confusion matrix</h2>
-                    <div class="cm">
-                        <div class="cm-blank"></div>
-                        <div class="cm-col-head">Pred. No</div>
-                        <div class="cm-col-head">Pred. Yes</div>
-                        <div class="cm-row-head">Actual No</div>
-                        <div class="cm-cell cm-tn" id="cmTN">—</div>
-                        <div class="cm-cell cm-fp" id="cmFP">—</div>
-                        <div class="cm-row-head">Actual Yes</div>
-                        <div class="cm-cell cm-fn" id="cmFN">—</div>
-                        <div class="cm-cell cm-tp" id="cmTP">—</div>
+            <!-- Pipeline steps -->
+            <div class="pipeline">
+                <div class="pipe-step" id="step1">
+                    <div class="pipe-step-header">
+                        <span class="pipe-step-num">1</span>
+                        <span class="pipe-step-title">Risk signal extraction</span>
+                        <code class="tag tag--det">Rules</code>
+                        <span class="pipe-step-status" id="step1Status"></span>
                     </div>
-                    <div class="cm-key">
-                        <span><i class="dot dot--tn"></i>True negative</span>
-                        <span><i class="dot dot--fp"></i>False positive</span>
-                        <span><i class="dot dot--fn"></i>False negative</span>
-                        <span><i class="dot dot--tp"></i>True positive</span>
-                    </div>
-                </section>
+                    <div class="pipe-step-body" id="step1Body"></div>
+                </div>
 
-                <section class="card">
-                    <h2 class="card-heading">Method selection</h2>
-                    <p class="card-desc">Each pipeline stage uses the right tool for the job — not AI everywhere.</p>
-                    <table class="method-table">
-                        <tbody>
-                            <tr><td><code class="tag tag--det">Rules</code></td><td>Risk signal extraction</td><td class="method-why">Clear rules, no ambiguity</td></tr>
-                            <tr><td><code class="tag tag--ml">XGBoost</code></td><td>Dispute probability</td><td class="method-why">Tabular data → trees &gt; LLMs</td></tr>
-                            <tr><td><code class="tag tag--ml">Multi-class</code></td><td>Reason code prediction</td><td class="method-why">Structured classification</td></tr>
-                            <tr><td><code class="tag tag--det">Rules</code></td><td>Deadline tracking</td><td class="method-why">Calendar math</td></tr>
+                <div class="pipe-connector"></div>
+
+                <div class="pipe-step" id="step2">
+                    <div class="pipe-step-header">
+                        <span class="pipe-step-num">2</span>
+                        <span class="pipe-step-title">Dispute probability</span>
+                        <code class="tag tag--ml">XGBoost</code>
+                        <span class="pipe-step-status" id="step2Status"></span>
+                    </div>
+                    <div class="pipe-step-body" id="step2Body"></div>
+                </div>
+
+                <div class="pipe-connector"></div>
+
+                <div class="pipe-step" id="step3">
+                    <div class="pipe-step-header">
+                        <span class="pipe-step-num">3a</span>
+                        <span class="pipe-step-title">Deflection message</span>
+                        <code class="tag tag--llm">Template</code>
+                        <span class="pipe-step-status" id="step3Status"></span>
+                    </div>
+                    <div class="pipe-step-body" id="step3Body"></div>
+                </div>
+
+                <div class="pipe-connector"></div>
+
+                <div class="pipe-step" id="step4">
+                    <div class="pipe-step-header">
+                        <span class="pipe-step-num">3b</span>
+                        <span class="pipe-step-title">Evidence package</span>
+                        <code class="tag tag--llm">Template</code>
+                        <span class="pipe-step-status" id="step4Status"></span>
+                    </div>
+                    <div class="pipe-step-body" id="step4Body"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION 2: Batch Analysis
+             ═══════════════════════════════════════════════ -->
+        <section class="batch-section" id="batchSection">
+            <div class="batch-header">
+                <div>
+                    <h2 class="section-title">Batch analysis</h2>
+                    <p class="section-desc">Run all 270 synthetic transactions through the pipeline. See precision, recall, and the confusion matrix.</p>
+                </div>
+                <button class="nav-action" id="runAnalysisBtn" onclick="runBatchAnalysis()">Run batch</button>
+            </div>
+
+            <div id="batchResults" style="display:none">
+
+                <!-- Stat row -->
+                <div class="stat-row">
+                    <div class="stat"><span class="stat-value" id="metricTotal">—</span><span class="stat-label">Transactions</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value stat-value--warn" id="metricFlagged">—</span><span class="stat-label">Flagged</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value stat-value--good" id="metricDeflections">—</span><span class="stat-label">Deflections</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value" id="metricPrecision">—</span><span class="stat-label">Precision</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value" id="metricRecall">—</span><span class="stat-label">Recall</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value" id="metricF1">—</span><span class="stat-label">F1</span></div>
+                </div>
+
+                <!-- FP cost -->
+                <aside class="callout" id="fpBanner" style="display:none">
+                    <span class="callout-label">False positive cost</span>
+                    <span class="callout-value" id="fpCostText">—</span>
+                </aside>
+
+                <!-- Two-up panels -->
+                <div class="grid-2" id="detailSection" style="display:none">
+                    <div class="card">
+                        <h2 class="card-heading">Confusion matrix</h2>
+                        <div class="cm">
+                            <div class="cm-blank"></div>
+                            <div class="cm-col-head">Pred. No</div>
+                            <div class="cm-col-head">Pred. Yes</div>
+                            <div class="cm-row-head">Actual No</div>
+                            <div class="cm-cell cm-tn" id="cmTN">—</div>
+                            <div class="cm-cell cm-fp" id="cmFP">—</div>
+                            <div class="cm-row-head">Actual Yes</div>
+                            <div class="cm-cell cm-fn" id="cmFN">—</div>
+                            <div class="cm-cell cm-tp" id="cmTP">—</div>
+                        </div>
+                        <div class="cm-key">
+                            <span><i class="dot dot--tn"></i>True negative</span>
+                            <span><i class="dot dot--fp"></i>False positive</span>
+                            <span><i class="dot dot--fn"></i>False negative</span>
+                            <span><i class="dot dot--tp"></i>True positive</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2 class="card-heading">Method selection</h2>
+                        <p class="card-desc">Each stage uses the right tool — not AI everywhere.</p>
+                        <table class="method-table"><tbody>
+                            <tr><td><code class="tag tag--det">Rules</code></td><td>Risk signal extraction</td><td class="method-why">Business rules</td></tr>
+                            <tr><td><code class="tag tag--ml">XGBoost</code></td><td>Dispute probability</td><td class="method-why">Trees &gt; LLMs on tabular</td></tr>
+                            <tr><td><code class="tag tag--ml">Multi-class</code></td><td>Reason code</td><td class="method-why">Structured features</td></tr>
+                            <tr><td><code class="tag tag--det">Rules</code></td><td>Deadlines</td><td class="method-why">Calendar math</td></tr>
                             <tr><td><code class="tag tag--llm">Gemini</code></td><td>Evidence narrative</td><td class="method-why">Contextual reasoning</td></tr>
-                            <tr><td><code class="tag tag--llm">Gemini</code></td><td>Deflection messages</td><td class="method-why">Empathy + personalization</td></tr>
-                        </tbody>
-                    </table>
-                </section>
-            </div>
-
-            <!-- Transaction table -->
-            <section class="card" id="resultsPanel" style="display:none">
-                <div class="card-toolbar">
-                    <h2 class="card-heading">Transactions</h2>
-                    <div class="seg-group" id="filterGroup" role="tablist">
-                        <button class="seg active" role="tab" aria-selected="true" onclick="filterResults('all', this)">All</button>
-                        <button class="seg" role="tab" onclick="filterResults('critical', this)">Critical</button>
-                        <button class="seg" role="tab" onclick="filterResults('high', this)">High</button>
-                        <button class="seg" role="tab" onclick="filterResults('medium', this)">Medium</button>
-                        <button class="seg" role="tab" onclick="filterResults('low', this)">Low</button>
+                            <tr><td><code class="tag tag--llm">Gemini</code></td><td>Deflection copy</td><td class="method-why">Empathy</td></tr>
+                        </tbody></table>
                     </div>
                 </div>
-                <div class="table-scroll">
-                    <table class="tbl">
-                        <thead>
-                            <tr>
-                                <th>Payment</th>
-                                <th class="tbl-right">Amount</th>
-                                <th>Merchant</th>
-                                <th>Network</th>
-                                <th>Score</th>
-                                <th>Level</th>
-                                <th>Type</th>
-                                <th>Truth</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsBody"></tbody>
-                    </table>
+
+                <!-- Transaction table -->
+                <div class="card" id="resultsPanel" style="display:none">
+                    <div class="card-toolbar">
+                        <h2 class="card-heading">Transactions</h2>
+                        <div class="seg-group" role="tablist">
+                            <button class="seg active" role="tab" aria-selected="true" onclick="filterResults('all', this)">All</button>
+                            <button class="seg" role="tab" onclick="filterResults('critical', this)">Critical</button>
+                            <button class="seg" role="tab" onclick="filterResults('high', this)">High</button>
+                            <button class="seg" role="tab" onclick="filterResults('medium', this)">Medium</button>
+                            <button class="seg" role="tab" onclick="filterResults('low', this)">Low</button>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="tbl"><thead><tr>
+                            <th>Payment</th><th class="tbl-right">Amount</th><th>Merchant</th><th>Network</th><th>Score</th><th>Level</th><th>Type</th><th>Truth</th>
+                        </tr></thead><tbody id="resultsBody"></tbody></table>
+                    </div>
                 </div>
-            </section>
-        </div>
-
-        <!-- Loading overlay -->
-        <div class="loading" id="loadingOverlay" style="display:none" role="status" aria-live="assertive">
-            <div class="loading-ring"></div>
-            <p class="loading-label">Analyzing 270 transactions…</p>
-        </div>
-
-        <!-- Detail panel (slide-over) -->
-        <div class="drawer-backdrop" id="drawerBackdrop" style="display:none" onclick="closeDrawer()"></div>
-        <aside class="drawer" id="drawer" aria-hidden="true">
-            <div class="drawer-header">
-                <h2 class="drawer-title" id="drawerTitle">Transaction</h2>
-                <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">&times;</button>
             </div>
-            <div class="drawer-body" id="drawerBody"></div>
-        </aside>
+        </section>
     </main>
+
+    <!-- Loading overlay -->
+    <div class="loading" id="loadingOverlay" style="display:none" role="status">
+        <div class="loading-ring"></div>
+        <p class="loading-label">Analyzing 270 transactions…</p>
+    </div>
+
+    <!-- Drawer -->
+    <div class="drawer-backdrop" id="drawerBackdrop" style="display:none" onclick="closeDrawer()"></div>
+    <aside class="drawer" id="drawer" aria-hidden="true">
+        <div class="drawer-header">
+            <h2 class="drawer-title" id="drawerTitle">Transaction</h2>
+            <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">&times;</button>
+        </div>
+        <div class="drawer-body" id="drawerBody"></div>
+    </aside>
 
     <footer class="footer">
         Built for <a href="https://razorpay.com/buildathon/" target="_blank" rel="noopener">Razorpay AI Buildathon 2026</a> · Track 2: AI Risk Manager
