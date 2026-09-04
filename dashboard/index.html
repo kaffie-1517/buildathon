@@ -117,7 +117,43 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 2: Batch Analysis
+             SECTION 2: Razorpay Live Feed
+             ═══════════════════════════════════════════════ -->
+        <section class="batch-section" id="razorpaySection">
+            <div class="batch-header">
+                <div>
+                    <h2 class="section-title">Razorpay live feed</h2>
+                    <p class="section-desc" id="rzpDesc">Fetch real payments from Razorpay test-mode sandbox and run them through DisputeForge.</p>
+                    <p class="rzp-status" id="rzpStatus"></p>
+                </div>
+                <button class="nav-action" id="runRzpBtn" onclick="runRazorpayAnalysis()">Fetch &amp; analyze</button>
+            </div>
+
+            <div id="rzpResults" style="display:none">
+                <div class="stat-row">
+                    <div class="stat"><span class="stat-value" id="rzpTotal">—</span><span class="stat-label">Payments</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value stat-value--warn" id="rzpFlagged">—</span><span class="stat-label">Flagged</span></div>
+                    <div class="stat-sep"></div>
+                    <div class="stat"><span class="stat-value stat-value--good" id="rzpDeflections">—</span><span class="stat-label">Deflections</span></div>
+                </div>
+
+                <div class="card" id="rzpTableCard">
+                    <div class="card-toolbar">
+                        <h2 class="card-heading">Live Razorpay payments</h2>
+                        <span class="rzp-source-tag" id="rzpSourceTag"></span>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="tbl"><thead><tr>
+                            <th>Payment ID</th><th class="tbl-right">Amount</th><th>Method</th><th>Status</th><th>Score</th><th>Level</th><th>Type</th>
+                        </tr></thead><tbody id="rzpBody"></tbody></table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION 3: Batch Analysis
              ═══════════════════════════════════════════════ -->
         <section class="batch-section" id="batchSection">
             <div class="batch-header">

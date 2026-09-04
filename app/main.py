@@ -22,6 +22,7 @@ from app.risk_engine import extract_risk_signals, get_triggered_signals
 from app.predictor import DisputePredictor
 from app.evidence import EvidenceOrchestrator
 from app.deflector import DeflectionEngine
+from app.razorpay_feed import RazorpayFeed
 
 # ── App Setup ─────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ if os.path.exists(DASHBOARD_DIR):
 predictor = DisputePredictor()
 evidence_engine = EvidenceOrchestrator()
 deflection_engine = DeflectionEngine()
+razorpay_feed = RazorpayFeed()
 
 # Audit trail (in-memory for demo, would be SQLite/DB in production)
 audit_trail = []
@@ -189,7 +191,58 @@ async def get_audit_trail():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "model_loaded": predictor.model is not None}
+    return {
+        "status": "ok",
+        "model_loaded": predictor.model is not None,
+        "razorpay": razorpay_feed.status(),
+    }
+
+
+@app.get("/api/razorpay/status")
+async def razorpay_status():
+    """Check Razorpay API connection status."""
+    return JSONResponse(razorpay_feed.status())
+
+
+@app.post("/api/razorpay/analyze")
+async def analyze_razorpay_payments():
+    """
+    Fetch live payments from Razorpay test-mode sandbox,
+    run each through the DisputeForge pipeline, and return results.
+    """
+    transactions = razorpay_feed.fetch_recent(count=50)
+
+    if not transactions:
+        return JSONResponse({
+            "error": "No payments found. Create some test-mode payments in the Razorpay dashboard first.",
+            "razorpay_status": razorpay_feed.status(),
+            "results": [],
+        }, status_code=200)
+
+    results = []
+    for txn in transactions:
+        result = _process_transaction(txn)
+        result["_source"] = txn.get("_source", "razorpay_live")
+        result["razorpay_status"] = txn.get("razorpay_status", "")
+        result["razorpay_method"] = txn.get("razorpay_method", "")
+        results.append(result)
+
+    # Summary stats
+    total = len(results)
+    flagged = [r for r in results if r["prediction"]["risk_level"] in ("high", "critical")]
+    deflections = [r for r in results if r.get("deflection")]
+
+    return JSONResponse({
+        "source": "razorpay_live" if razorpay_feed.is_live else "synthetic_fallback",
+        "is_test_mode": razorpay_feed.is_test_mode,
+        "summary": {
+            "total_payments": total,
+            "flagged_high_risk": len(flagged),
+            "deflections_generated": len(deflections),
+        },
+        "results": results,
+        "analyzed_at": datetime.now().isoformat(),
+    })
 
 
 # ── Internal Processing ───────────────────────────────────────────────────

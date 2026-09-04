@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', checkHealth);
 
 async function checkHealth() {
     const el = document.getElementById('modelStatus');
+    const rzpEl = document.getElementById('rzpStatus');
     try {
         const res = await fetch('/api/health');
         const d = await res.json();
@@ -94,6 +95,18 @@ async function checkHealth() {
             el.innerHTML = '<span class="nav-status-dot"></span>Model ready';
         } else {
             el.innerHTML = '<span class="nav-status-dot"></span>Model not trained';
+        }
+        // Razorpay status
+        const rzp = d.razorpay || {};
+        if (rzp.is_live) {
+            rzpEl.innerHTML = `<span class="rzp-dot rzp-dot--live"></span>Connected — ${rzp.is_test_mode ? 'test mode' : 'live mode'} (${rzp.key_id_prefix})`;
+            rzpEl.className = 'rzp-status rzp-live';
+        } else if (rzp.keys_configured) {
+            rzpEl.innerHTML = '<span class="rzp-dot rzp-dot--warn"></span>Keys set but SDK not available. Run: pip install razorpay';
+            rzpEl.className = 'rzp-status';
+        } else {
+            rzpEl.innerHTML = '<span class="rzp-dot rzp-dot--off"></span>No API keys. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env';
+            rzpEl.className = 'rzp-status';
         }
     } catch {
         el.className = 'nav-status error';
@@ -278,6 +291,79 @@ function setStepDone(id, msg) {
 
 function expandBody(body) {
     requestAnimationFrame(() => body.classList.add('expanded'));
+}
+
+// ── Razorpay Live Analysis ────────────────────────────
+
+async function runRazorpayAnalysis() {
+    const btn = document.getElementById('runRzpBtn');
+    const loading = document.getElementById('loadingOverlay');
+
+    btn.disabled = true;
+    loading.style.display = 'flex';
+    document.querySelector('.loading-label').textContent = 'Fetching from Razorpay…';
+
+    try {
+        const res = await fetch('/api/razorpay/analyze', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.error && (!data.results || data.results.length === 0)) {
+            alert(data.error);
+            return;
+        }
+
+        const results = data.results || [];
+        const summary = data.summary || {};
+        const source = data.source;
+
+        setText('rzpTotal', summary.total_payments || results.length);
+        setText('rzpFlagged', summary.flagged_high_risk || 0);
+        setText('rzpDeflections', summary.deflections_generated || 0);
+
+        // Source tag
+        const tagEl = document.getElementById('rzpSourceTag');
+        if (source === 'razorpay_live') {
+            tagEl.textContent = data.is_test_mode ? 'Razorpay Test Mode' : 'Razorpay Live';
+            tagEl.className = 'rzp-source-tag rzp-tag--live';
+        } else {
+            tagEl.textContent = 'Synthetic fallback';
+            tagEl.className = 'rzp-source-tag rzp-tag--synth';
+        }
+
+        // Render table
+        const tbody = document.getElementById('rzpBody');
+        tbody.innerHTML = '';
+        for (const r of results) {
+            const p = r.prediction || {};
+            const prob = p.dispute_probability || 0;
+            const lvl = p.risk_level || 'low';
+            const tr = document.createElement('tr');
+            tr.onclick = () => openDrawer(r);
+            tr.innerHTML = `
+                <td style="font-family:var(--f-mono);font-size:11px;color:var(--c-text)">${r.payment_id || '—'}</td>
+                <td class="cell-amount">₹${fmtNum(r.amount)}</td>
+                <td>${r.razorpay_method || r.card_network || '—'}</td>
+                <td>${r.razorpay_status || '—'}</td>
+                <td><span class="score-bar">
+                    <span class="score-track"><span class="score-fill" style="width:${prob*100}%;background:${color(lvl)}"></span></span>
+                    <span class="score-num" style="color:${color(lvl)}">${(prob*100).toFixed(0)}%</span>
+                </span></td>
+                <td><span class="risk-ind"><span class="risk-dot risk-dot--${lvl}"></span>${lvl}</span></td>
+                <td>${p.predicted_dispute_type || '—'}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        document.getElementById('rzpResults').style.display = 'block';
+
+    } catch (err) {
+        console.error(err);
+        alert('Razorpay analysis failed. Is the server running?');
+    } finally {
+        btn.disabled = false;
+        loading.style.display = 'none';
+        document.querySelector('.loading-label').textContent = 'Analyzing 270 transactions…';
+    }
 }
 
 // ── Batch Analysis ────────────────────────────────────

@@ -1059,6 +1059,41 @@ body {
     line-height: 1.5;
 }
 
+/* ── Razorpay status ────────────────────────────────── */
+
+.rzp-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--c-text-3);
+    margin-top: 6px;
+}
+
+.rzp-status.rzp-live { color: var(--c-green); }
+
+.rzp-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.rzp-dot--live { background: var(--c-green); }
+.rzp-dot--warn { background: var(--c-amber); }
+.rzp-dot--off  { background: var(--c-text-3); }
+
+.rzp-source-tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+
+.rzp-tag--live  { background: rgba(70, 167, 88, 0.10); color: var(--c-green); }
+.rzp-tag--synth { background: rgba(212, 160, 55, 0.10); color: var(--c-amber); }
+
+
 /* ── Responsive ─────────────────────────────────────── */
 
 @media (max-width: 860px) {
