@@ -110,6 +110,15 @@ async def analyze_transaction(txn: TransactionInput):
     return AnalysisResponse(**result)
 
 
+@app.post("/api/analyze-single")
+async def analyze_single(txn: TransactionInput):
+    """Analyze a single transaction — used by the interactive pipeline demo."""
+    txn_dict = txn.model_dump()
+    result = _process_transaction(txn_dict)
+    return JSONResponse(result)
+
+
+
 @app.post("/api/analyze-batch")
 async def analyze_batch():
     """Analyze the full synthetic dataset batch."""
