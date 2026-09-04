@@ -3,200 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DisputeForge — Pre-Dispute Intelligence</title>
-    <meta name="description" content="AI-powered pre-dispute deflection and evidence orchestration for Razorpay merchants">
+    <title>DisputeForge</title>
+    <meta name="description" content="Pre-dispute deflection and evidence orchestration for Razorpay merchants">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-left">
-            <div class="logo">
-                <div class="logo-icon">🛡️</div>
-                <div>
-                    <h1 class="logo-text">DisputeForge</h1>
-                    <span class="logo-sub">Pre-Dispute Intelligence</span>
-                </div>
-            </div>
+
+    <nav class="nav" role="navigation">
+        <div class="nav-left">
+            <span class="nav-wordmark">DisputeForge</span>
+            <span class="nav-divider"></span>
+            <span class="nav-context">Batch Analysis</span>
         </div>
-        <div class="header-right">
-            <div class="status-badge" id="modelStatus">
-                <span class="status-dot"></span>
-                <span>Checking...</span>
-            </div>
-            <button class="btn btn-primary" id="runAnalysisBtn" onclick="runBatchAnalysis()">
-                <span class="btn-icon">⚡</span> Run Batch Analysis
+        <div class="nav-right">
+            <span class="nav-status" id="modelStatus" aria-live="polite">
+                <span class="nav-status-dot"></span>
+                Checking…
+            </span>
+            <button class="nav-action" id="runAnalysisBtn" onclick="runBatchAnalysis()">
+                Run analysis
             </button>
         </div>
-    </header>
+    </nav>
 
-    <!-- Main Content -->
-    <main class="main">
-        <!-- Metrics Cards -->
-        <section class="metrics-grid" id="metricsGrid">
-            <div class="metric-card">
-                <div class="metric-label">Total Transactions</div>
-                <div class="metric-value" id="metricTotal">—</div>
-                <div class="metric-sub">Batch size</div>
-            </div>
-            <div class="metric-card metric-danger">
-                <div class="metric-label">Flagged High-Risk</div>
-                <div class="metric-value" id="metricFlagged">—</div>
-                <div class="metric-sub" id="metricFlaggedPct">—</div>
-            </div>
-            <div class="metric-card metric-success">
-                <div class="metric-label">Deflections Sent</div>
-                <div class="metric-value" id="metricDeflections">—</div>
-                <div class="metric-sub">Proactive outreach</div>
-            </div>
-            <div class="metric-card metric-info">
-                <div class="metric-label">Precision</div>
-                <div class="metric-value" id="metricPrecision">—</div>
-                <div class="metric-sub">Of flagged, actually disputed</div>
-            </div>
-            <div class="metric-card metric-warning">
-                <div class="metric-label">Recall</div>
-                <div class="metric-value" id="metricRecall">—</div>
-                <div class="metric-sub">Of disputes, caught early</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">F1 Score</div>
-                <div class="metric-value" id="metricF1">—</div>
-                <div class="metric-sub">Harmonic mean</div>
+    <main class="page">
+
+        <!-- Empty state (shown before first analysis) -->
+        <section class="empty-state" id="emptyState">
+            <div class="empty-state-inner">
+                <p class="empty-state-title">No analysis yet</p>
+                <p class="empty-state-desc">Run batch analysis on 270 synthetic transactions to see dispute predictions, deflection actions, and evidence packages.</p>
+                <button class="btn-run" onclick="runBatchAnalysis()">Run analysis</button>
             </div>
         </section>
 
-        <!-- False Positive Cost Banner -->
-        <section class="fp-banner" id="fpBanner" style="display:none;">
-            <div class="fp-icon">⚖️</div>
-            <div class="fp-text">
-                <strong>False Positive Cost:</strong>
-                <span id="fpCostText">—</span>
-            </div>
-            <div class="fp-note">Honest metric: we show what we get wrong</div>
-        </section>
+        <!-- Results (hidden until analysis runs) -->
+        <div id="resultsContainer" style="display:none">
 
-        <!-- Confusion Matrix -->
-        <section class="two-col" id="detailSection" style="display:none;">
-            <div class="panel">
-                <h2 class="panel-title">Confusion Matrix</h2>
-                <div class="confusion-matrix">
-                    <div class="cm-corner"></div>
-                    <div class="cm-header">Pred: No</div>
-                    <div class="cm-header">Pred: Yes</div>
-                    <div class="cm-row-label">Actual: No</div>
-                    <div class="cm-cell cm-tn" id="cmTN">—</div>
-                    <div class="cm-cell cm-fp" id="cmFP">—</div>
-                    <div class="cm-row-label">Actual: Yes</div>
-                    <div class="cm-cell cm-fn" id="cmFN">—</div>
-                    <div class="cm-cell cm-tp" id="cmTP">—</div>
+            <!-- Stat row -->
+            <section class="stat-row" id="statRow">
+                <div class="stat">
+                    <span class="stat-value" id="metricTotal">—</span>
+                    <span class="stat-label">Transactions</span>
                 </div>
-                <div class="cm-legend">
-                    <span class="legend-item"><span class="legend-dot tn-dot"></span> True Neg</span>
-                    <span class="legend-item"><span class="legend-dot fp-dot"></span> False Pos</span>
-                    <span class="legend-item"><span class="legend-dot fn-dot"></span> False Neg</span>
-                    <span class="legend-item"><span class="legend-dot tp-dot"></span> True Pos</span>
+                <div class="stat-sep"></div>
+                <div class="stat">
+                    <span class="stat-value stat-value--warn" id="metricFlagged">—</span>
+                    <span class="stat-label">Flagged</span>
                 </div>
+                <div class="stat-sep"></div>
+                <div class="stat">
+                    <span class="stat-value stat-value--good" id="metricDeflections">—</span>
+                    <span class="stat-label">Deflections</span>
+                </div>
+                <div class="stat-sep"></div>
+                <div class="stat">
+                    <span class="stat-value" id="metricPrecision">—</span>
+                    <span class="stat-label">Precision</span>
+                </div>
+                <div class="stat-sep"></div>
+                <div class="stat">
+                    <span class="stat-value" id="metricRecall">—</span>
+                    <span class="stat-label">Recall</span>
+                </div>
+                <div class="stat-sep"></div>
+                <div class="stat">
+                    <span class="stat-value" id="metricF1">—</span>
+                    <span class="stat-label">F1</span>
+                </div>
+            </section>
+
+            <!-- FP cost callout -->
+            <aside class="callout" id="fpBanner" style="display:none">
+                <span class="callout-label">False positive cost</span>
+                <span class="callout-value" id="fpCostText">—</span>
+            </aside>
+
+            <!-- Two-up: Confusion Matrix + AI split -->
+            <div class="grid-2" id="detailSection" style="display:none">
+                <section class="card">
+                    <h2 class="card-heading">Confusion matrix</h2>
+                    <div class="cm">
+                        <div class="cm-blank"></div>
+                        <div class="cm-col-head">Pred. No</div>
+                        <div class="cm-col-head">Pred. Yes</div>
+                        <div class="cm-row-head">Actual No</div>
+                        <div class="cm-cell cm-tn" id="cmTN">—</div>
+                        <div class="cm-cell cm-fp" id="cmFP">—</div>
+                        <div class="cm-row-head">Actual Yes</div>
+                        <div class="cm-cell cm-fn" id="cmFN">—</div>
+                        <div class="cm-cell cm-tp" id="cmTP">—</div>
+                    </div>
+                    <div class="cm-key">
+                        <span><i class="dot dot--tn"></i>True negative</span>
+                        <span><i class="dot dot--fp"></i>False positive</span>
+                        <span><i class="dot dot--fn"></i>False negative</span>
+                        <span><i class="dot dot--tp"></i>True positive</span>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2 class="card-heading">Method selection</h2>
+                    <p class="card-desc">Each pipeline stage uses the right tool for the job — not AI everywhere.</p>
+                    <table class="method-table">
+                        <tbody>
+                            <tr><td><code class="tag tag--det">Rules</code></td><td>Risk signal extraction</td><td class="method-why">Clear rules, no ambiguity</td></tr>
+                            <tr><td><code class="tag tag--ml">XGBoost</code></td><td>Dispute probability</td><td class="method-why">Tabular data → trees &gt; LLMs</td></tr>
+                            <tr><td><code class="tag tag--ml">Multi-class</code></td><td>Reason code prediction</td><td class="method-why">Structured classification</td></tr>
+                            <tr><td><code class="tag tag--det">Rules</code></td><td>Deadline tracking</td><td class="method-why">Calendar math</td></tr>
+                            <tr><td><code class="tag tag--llm">Gemini</code></td><td>Evidence narrative</td><td class="method-why">Contextual reasoning</td></tr>
+                            <tr><td><code class="tag tag--llm">Gemini</code></td><td>Deflection messages</td><td class="method-why">Empathy + personalization</td></tr>
+                        </tbody>
+                    </table>
+                </section>
             </div>
 
-            <div class="panel">
-                <h2 class="panel-title">AI vs Deterministic Split</h2>
-                <div class="ai-split">
-                    <div class="split-item">
-                        <div class="split-badge deterministic">DETERMINISTIC</div>
-                        <div class="split-name">Risk Signal Extraction</div>
-                        <div class="split-reason">Clear rules, no ambiguity needed</div>
-                    </div>
-                    <div class="split-item">
-                        <div class="split-badge ml">ML (XGBoost)</div>
-                        <div class="split-name">Dispute Probability</div>
-                        <div class="split-reason">Tabular data → tree models > LLMs</div>
-                    </div>
-                    <div class="split-item">
-                        <div class="split-badge ml">ML (Multi-class)</div>
-                        <div class="split-name">Reason Code Prediction</div>
-                        <div class="split-reason">Classification on structured features</div>
-                    </div>
-                    <div class="split-item">
-                        <div class="split-badge deterministic">DETERMINISTIC</div>
-                        <div class="split-name">Deadline Tracking</div>
-                        <div class="split-reason">Calendar math, not judgment</div>
-                    </div>
-                    <div class="split-item">
-                        <div class="split-badge llm">LLM (Gemini)</div>
-                        <div class="split-name">Evidence Narrative</div>
-                        <div class="split-reason">Requires reasoning about context</div>
-                    </div>
-                    <div class="split-item">
-                        <div class="split-badge llm">LLM (Gemini)</div>
-                        <div class="split-name">Deflection Messages</div>
-                        <div class="split-reason">Requires empathy + personalization</div>
+            <!-- Transaction table -->
+            <section class="card" id="resultsPanel" style="display:none">
+                <div class="card-toolbar">
+                    <h2 class="card-heading">Transactions</h2>
+                    <div class="seg-group" id="filterGroup" role="tablist">
+                        <button class="seg active" role="tab" aria-selected="true" onclick="filterResults('all', this)">All</button>
+                        <button class="seg" role="tab" onclick="filterResults('critical', this)">Critical</button>
+                        <button class="seg" role="tab" onclick="filterResults('high', this)">High</button>
+                        <button class="seg" role="tab" onclick="filterResults('medium', this)">Medium</button>
+                        <button class="seg" role="tab" onclick="filterResults('low', this)">Low</button>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- Transaction Results Table -->
-        <section class="panel" id="resultsPanel" style="display:none;">
-            <div class="panel-header">
-                <h2 class="panel-title">Transaction Analysis Results</h2>
-                <div class="filter-group">
-                    <button class="filter-btn active" onclick="filterResults('all')">All</button>
-                    <button class="filter-btn" onclick="filterResults('critical')">🔴 Critical</button>
-                    <button class="filter-btn" onclick="filterResults('high')">🟠 High</button>
-                    <button class="filter-btn" onclick="filterResults('medium')">🟡 Medium</button>
-                    <button class="filter-btn" onclick="filterResults('low')">🟢 Low</button>
+                <div class="table-scroll">
+                    <table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>Payment</th>
+                                <th class="tbl-right">Amount</th>
+                                <th>Merchant</th>
+                                <th>Network</th>
+                                <th>Score</th>
+                                <th>Level</th>
+                                <th>Type</th>
+                                <th>Truth</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
                 </div>
-            </div>
-            <div class="table-wrapper">
-                <table class="results-table">
-                    <thead>
-                        <tr>
-                            <th>Payment ID</th>
-                            <th>Amount</th>
-                            <th>Merchant</th>
-                            <th>Network</th>
-                            <th>Risk Score</th>
-                            <th>Risk Level</th>
-                            <th>Predicted Type</th>
-                            <th>Signals</th>
-                            <th>Ground Truth</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="resultsBody">
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Detail Modal -->
-        <div class="modal-overlay" id="detailModal" style="display:none;" onclick="closeModal(event)">
-            <div class="modal" onclick="event.stopPropagation()">
-                <div class="modal-header">
-                    <h2 id="modalTitle">Transaction Details</h2>
-                    <button class="modal-close" onclick="closeModal()">✕</button>
-                </div>
-                <div class="modal-body" id="modalBody">
-                </div>
-            </div>
+            </section>
         </div>
 
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loadingOverlay" style="display:none;">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Analyzing 270 transactions...</div>
-            <div class="loading-sub">Running 3-stage pipeline: Risk Signals → XGBoost → Evidence</div>
+        <!-- Loading overlay -->
+        <div class="loading" id="loadingOverlay" style="display:none" role="status" aria-live="assertive">
+            <div class="loading-ring"></div>
+            <p class="loading-label">Analyzing 270 transactions…</p>
         </div>
+
+        <!-- Detail panel (slide-over) -->
+        <div class="drawer-backdrop" id="drawerBackdrop" style="display:none" onclick="closeDrawer()"></div>
+        <aside class="drawer" id="drawer" aria-hidden="true">
+            <div class="drawer-header">
+                <h2 class="drawer-title" id="drawerTitle">Transaction</h2>
+                <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">&times;</button>
+            </div>
+            <div class="drawer-body" id="drawerBody"></div>
+        </aside>
     </main>
 
-    <!-- Footer -->
     <footer class="footer">
-        <div>DisputeForge — Built for <a href="https://razorpay.com/buildathon/" target="_blank">Razorpay AI Buildathon 2026</a> | Track 2: AI Risk Manager</div>
-        <div>The best chargeback is the one that never happens.</div>
+        Built for <a href="https://razorpay.com/buildathon/" target="_blank" rel="noopener">Razorpay AI Buildathon 2026</a> · Track 2: AI Risk Manager
     </footer>
 
     <script src="/static/app.js"></script>

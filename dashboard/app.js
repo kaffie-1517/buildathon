@@ -1,38 +1,32 @@
 /**
- * DisputeForge — Dashboard Application Logic
- *
- * Handles batch analysis, result rendering, filtering,
- * and detail modals for the premium dashboard.
+ * DisputeForge — Dashboard
  */
 
 let allResults = [];
 let batchMetrics = null;
 
-// ── Init ─────────────────────────────────────────────────────────────────
+// ── Boot ─────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
-    checkHealth();
-});
+document.addEventListener('DOMContentLoaded', checkHealth);
 
 async function checkHealth() {
-    const badge = document.getElementById('modelStatus');
+    const el = document.getElementById('modelStatus');
     try {
         const res = await fetch('/api/health');
-        const data = await res.json();
-        if (data.model_loaded) {
-            badge.className = 'status-badge ready';
-            badge.innerHTML = '<span class="status-dot"></span><span>Model Ready</span>';
+        const d = await res.json();
+        if (d.model_loaded) {
+            el.className = 'nav-status ready';
+            el.innerHTML = '<span class="nav-status-dot"></span>Model ready';
         } else {
-            badge.className = 'status-badge';
-            badge.innerHTML = '<span class="status-dot"></span><span>Model Not Trained</span>';
+            el.textContent = 'Model not trained';
         }
     } catch {
-        badge.className = 'status-badge error';
-        badge.innerHTML = '<span class="status-dot"></span><span>API Offline</span>';
+        el.className = 'nav-status error';
+        el.innerHTML = '<span class="nav-status-dot"></span>Offline';
     }
 }
 
-// ── Batch Analysis ───────────────────────────────────────────────────────
+// ── Analysis ─────────────────────────────────────────
 
 async function runBatchAnalysis() {
     const btn = document.getElementById('runAnalysisBtn');
@@ -49,226 +43,221 @@ async function runBatchAnalysis() {
         batchMetrics = data.batch_metrics || {};
 
         renderMetrics(batchMetrics);
-        renderResults(allResults);
+        renderTable(allResults);
 
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('resultsContainer').style.display = 'block';
         document.getElementById('detailSection').style.display = 'grid';
         document.getElementById('resultsPanel').style.display = 'block';
         document.getElementById('fpBanner').style.display = 'flex';
-
     } catch (err) {
-        console.error('Analysis failed:', err);
-        alert('Analysis failed. Is the server running?\n\nRun: python3 -m uvicorn app.main:app --reload');
+        console.error(err);
+        alert('Analysis failed. Is the server running?');
     } finally {
         btn.disabled = false;
         loading.style.display = 'none';
     }
 }
 
-// ── Render Metrics ───────────────────────────────────────────────────────
+// ── Metrics ──────────────────────────────────────────
 
 function renderMetrics(m) {
-    document.getElementById('metricTotal').textContent = m.total_transactions || 0;
+    setText('metricTotal', m.total_transactions || 0);
+    setText('metricFlagged', m.flagged_high_risk || 0);
+    setText('metricDeflections', m.deflections_generated || 0);
+    setText('metricPrecision', pct(m.precision));
+    setText('metricRecall', pct(m.recall));
+    setText('metricF1', (m.f1_score || 0).toFixed(3));
 
-    const flagged = m.flagged_high_risk || 0;
-    document.getElementById('metricFlagged').textContent = flagged;
-    document.getElementById('metricFlaggedPct').textContent =
-        m.total_transactions ? `${((flagged / m.total_transactions) * 100).toFixed(1)}% of batch` : '—';
+    setText('cmTN', m.true_negatives || 0);
+    setText('cmFP', m.false_alarms || 0);
+    setText('cmFN', m.missed_disputes || 0);
+    setText('cmTP', m.correctly_flagged || 0);
 
-    document.getElementById('metricDeflections').textContent = m.deflections_generated || 0;
-
-    const precision = m.precision || 0;
-    document.getElementById('metricPrecision').textContent = `${(precision * 100).toFixed(1)}%`;
-
-    const recall = m.recall || 0;
-    document.getElementById('metricRecall').textContent = `${(recall * 100).toFixed(1)}%`;
-
-    const f1 = m.f1_score || 0;
-    document.getElementById('metricF1').textContent = f1.toFixed(3);
-
-    // Confusion matrix
-    document.getElementById('cmTN').textContent = m.true_negatives || 0;
-    document.getElementById('cmFP').textContent = m.false_alarms || 0;
-    document.getElementById('cmFN').textContent = m.missed_disputes || 0;
-    document.getElementById('cmTP').textContent = m.correctly_flagged || 0;
-
-    // FP cost
-    document.getElementById('fpCostText').textContent = m.false_positive_cost || '—';
+    setText('fpCostText', m.false_positive_cost || '—');
 }
 
-// ── Render Results Table ─────────────────────────────────────────────────
+// ── Table ────────────────────────────────────────────
 
-function renderResults(results, filter = 'all') {
+function renderTable(results, filter) {
     const tbody = document.getElementById('resultsBody');
     tbody.innerHTML = '';
 
-    const filtered = filter === 'all'
-        ? results
-        : results.filter(r => r.prediction?.risk_level === filter);
+    let rows = filter && filter !== 'all'
+        ? results.filter(r => r.prediction?.risk_level === filter)
+        : results;
 
-    // Sort: critical first, then high, medium, low
-    const order = { critical: 0, high: 1, medium: 2, low: 3 };
-    filtered.sort((a, b) =>
-        (order[a.prediction?.risk_level] ?? 4) - (order[b.prediction?.risk_level] ?? 4)
-    );
+    const ord = { critical: 0, high: 1, medium: 2, low: 3 };
+    rows.sort((a, b) => (ord[a.prediction?.risk_level] ?? 4) - (ord[b.prediction?.risk_level] ?? 4));
 
-    filtered.forEach((r, idx) => {
-        const pred = r.prediction || {};
-        const prob = pred.dispute_probability || 0;
-        const level = pred.risk_level || 'low';
+    for (const r of rows) {
+        const p = r.prediction || {};
+        const prob = p.dispute_probability || 0;
+        const lvl = p.risk_level || 'low';
         const disputed = r._ground_truth_disputed;
-        const signals = r.triggered_signals || [];
 
-        const row = document.createElement('tr');
-        row.setAttribute('data-risk', level);
-        row.onclick = () => showDetail(r);
+        const tr = document.createElement('tr');
+        tr.onclick = () => openDrawer(r);
 
-        row.innerHTML = `
-            <td style="font-family: monospace; font-size:11px; color: var(--text-primary)">${truncate(r.payment_id, 18)}</td>
-            <td style="font-weight:600; color: var(--text-primary)">₹${Number(r.amount).toLocaleString('en-IN')}</td>
+        tr.innerHTML = `
+            <td>${shortId(r.payment_id)}</td>
+            <td class="cell-amount">₹${fmtNum(r.amount)}</td>
             <td>${r.merchant_name || '—'}</td>
             <td>${r.card_network || '—'}</td>
             <td>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:50px;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">
-                        <div style="width:${prob * 100}%;height:100%;background:${getColor(level)};border-radius:3px;transition:width 0.5s ease"></div>
-                    </div>
-                    <span style="font-weight:600;font-size:11px;color:${getColor(level)}">${(prob * 100).toFixed(1)}%</span>
-                </div>
+                <span class="score-bar">
+                    <span class="score-track"><span class="score-fill" style="width:${prob * 100}%;background:${color(lvl)}"></span></span>
+                    <span class="score-num" style="color:${color(lvl)}">${(prob * 100).toFixed(0)}%</span>
+                </span>
             </td>
-            <td><span class="risk-badge ${level}">${level}</span></td>
-            <td style="font-size:11px">${pred.predicted_dispute_type || '—'}</td>
-            <td style="font-size:11px;color:var(--text-muted)">${signals.length} signal${signals.length !== 1 ? 's' : ''}</td>
-            <td><span class="truth-badge ${disputed ? 'disputed' : 'clean'}">${disputed ? '⚠ Disputed' : '✓ Clean'}</span></td>
-            <td><button class="action-btn" onclick="event.stopPropagation(); showDetail(allResults[${allResults.indexOf(r)}])">Details</button></td>
+            <td><span class="risk-ind"><span class="risk-dot risk-dot--${lvl}"></span>${lvl}</span></td>
+            <td>${p.predicted_dispute_type || '—'}</td>
+            <td><span class="truth ${disputed ? 'truth--yes' : 'truth--no'}">${disputed ? 'Disputed' : 'Clean'}</span></td>
         `;
 
-        tbody.appendChild(row);
-    });
+        tbody.appendChild(tr);
+    }
 }
 
-function filterResults(filter) {
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    renderResults(allResults, filter);
+function filterResults(filter, btn) {
+    document.querySelectorAll('.seg').forEach(s => { s.classList.remove('active'); s.setAttribute('aria-selected', 'false'); });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    renderTable(allResults, filter);
 }
 
-// ── Detail Modal ─────────────────────────────────────────────────────────
+// ── Drawer ───────────────────────────────────────────
 
-function showDetail(result) {
-    const modal = document.getElementById('detailModal');
-    const title = document.getElementById('modalTitle');
-    const body = document.getElementById('modalBody');
+function openDrawer(result) {
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+    const body = document.getElementById('drawerBody');
+    const title = document.getElementById('drawerTitle');
 
-    const pred = result.prediction || {};
-    const level = pred.risk_level || 'low';
+    const p = result.prediction || {};
+    const lvl = p.risk_level || 'low';
 
-    title.innerHTML = `
-        <span style="color:${getColor(level)}">●</span>
-        ${result.payment_id}
-        <span class="risk-badge ${level}" style="margin-left:8px">${level}</span>
-    `;
+    title.textContent = shortId(result.payment_id);
 
     let html = '';
 
-    // Transaction info
-    html += `<div class="modal-section">
-        <h3>Transaction Details</h3>
-        <pre>${JSON.stringify({
-            payment_id: result.payment_id,
-            amount: `₹${result.amount}`,
-            merchant: result.merchant_name,
-            network: result.card_network,
-            dispute_probability: `${(pred.dispute_probability * 100).toFixed(1)}%`,
-            predicted_type: pred.predicted_dispute_type,
-            model_used: pred.model_used,
-            ground_truth: result._ground_truth_disputed ? `DISPUTED (${result._ground_truth_type})` : 'CLEAN',
-        }, null, 2)}</pre>
-    </div>`;
+    // ── Overview
+    html += section('Overview', `
+        <div class="dfield-grid">
+            ${field('Amount', `₹${fmtNum(result.amount)}`)}
+            ${field('Merchant', result.merchant_name)}
+            ${field('Network', result.card_network)}
+            ${field('Model', p.model_used)}
+            ${field('Score', `${(p.dispute_probability * 100).toFixed(1)}%`)}
+            ${field('Level', lvl)}
+            ${field('Type', p.predicted_dispute_type || '—')}
+            ${field('Ground truth', result._ground_truth_disputed ? `Disputed (${result._ground_truth_type})` : 'Clean')}
+        </div>
+    `);
 
-    // Triggered signals
-    const signals = result.triggered_signals || [];
-    if (signals.length > 0) {
-        html += `<div class="modal-section">
-            <h3>Triggered Risk Signals (${signals.length})</h3>
-            <div style="margin-bottom:8px">`;
-        signals.forEach(s => {
-            html += `<span class="signal-tag ${s.severity}">${s.description} (${s.value})</span>`;
-        });
-        html += `</div></div>`;
+    // ── Signals
+    const sigs = result.triggered_signals || [];
+    if (sigs.length) {
+        let tags = sigs.map(s =>
+            `<span class="dsignal dsignal--${s.severity}">${s.description}</span>`
+        ).join('');
+        html += section(`Signals (${sigs.length})`, `<div class="dsignal-list">${tags}</div>`);
     }
 
-    // Deflection
+    // ── Deflection
     if (result.deflection) {
         const d = result.deflection;
-        html += `<div class="modal-section">
-            <h3>🛡️ Pre-Dispute Deflection</h3>
-            <pre><strong>Channel:</strong> ${d.channel}
-<strong>Urgency:</strong> ${d.timing?.urgency || '—'} (send within ${d.timing?.send_within || '—'})
-<strong>Subject:</strong> ${d.subject || '—'}
-
-${d.message}</pre>
-        </div>`;
+        html += section('Pre-dispute deflection', `
+            <div class="dfield-grid">
+                ${field('Channel', d.channel)}
+                ${field('Urgency', d.timing?.urgency || '—')}
+                ${field('Send within', d.timing?.send_within || '—')}
+            </div>
+            <div style="margin-top:10px">
+                <div class="dsection-heading">Message</div>
+                <div class="dpre">${esc(d.message)}</div>
+            </div>
+        `);
     }
 
-    // Evidence package
+    // ── Evidence
     if (result.evidence_package) {
         const e = result.evidence_package;
-        html += `<div class="modal-section">
-            <h3>📋 Evidence Package</h3>
-            <pre><strong>Type:</strong> ${e.template_used}
-<strong>Reason Code:</strong> ${e.reason_code} — ${e.reason_code_name}
-<strong>Network:</strong> ${e.network}
-<strong>Deadline:</strong> ${e.deadline_days} days
-<strong>Evidence Strength:</strong> ${e.evidence_strength?.rating} (${(e.evidence_strength?.score * 100).toFixed(0)}%)
-<strong>Generated via:</strong> ${e.generation_method}
+        html += section('Evidence package', `
+            <div class="dfield-grid">
+                ${field('Reason code', `${e.reason_code} — ${e.reason_code_name}`)}
+                ${field('Network', e.network)}
+                ${field('Deadline', `${e.deadline_days} days`)}
+                ${field('Strength', `${e.evidence_strength?.rating} (${(e.evidence_strength?.score * 100).toFixed(0)}%)`)}
+            </div>
+            <div style="margin-top:10px">
+                <div class="dsection-heading">Narrative</div>
+                <div class="dpre">${esc(e.narrative)}</div>
+            </div>
+        `);
 
-${e.narrative}</pre>
-        </div>`;
-
-        // Evidence checklist
-        if (e.evidence_checklist) {
-            html += `<div class="modal-section"><h3>Evidence Checklist</h3><div>`;
-            e.evidence_checklist.forEach(item => {
-                const icon = item.available ? '✅' : '❌';
-                html += `<div style="padding:4px 0;font-size:12px;color:var(--text-secondary)">${icon} ${item.item} <span style="color:var(--text-muted)">(${item.source})</span></div>`;
-            });
-            html += `</div></div>`;
+        if (e.evidence_checklist?.length) {
+            let items = e.evidence_checklist.map(i => `
+                <div class="devidence-item">
+                    <span class="devidence-check">${i.available ? '✓' : '✗'}</span>
+                    <span>${esc(i.item)}</span>
+                    <span class="devidence-src">${esc(i.source)}</span>
+                </div>
+            `).join('');
+            html += section('Evidence checklist', items);
         }
     }
 
-    // Audit trail entry
-    html += `<div class="modal-section">
-        <h3>Audit Trail Entry</h3>
-        <pre>${JSON.stringify(result.audit_entry, null, 2)}</pre>
-    </div>`;
+    // ── Audit
+    html += section('Audit trail', `<div class="dpre">${JSON.stringify(result.audit_entry, null, 2)}</div>`);
 
     body.innerHTML = html;
-    modal.style.display = 'flex';
+
+    backdrop.style.display = 'block';
+    drawer.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => drawer.classList.add('open'));
+    document.body.style.overflow = 'hidden';
 }
 
-function closeModal(event) {
-    if (!event || event.target === document.getElementById('detailModal')) {
-        document.getElementById('detailModal').style.display = 'none';
-    }
+function closeDrawer() {
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+
+    setTimeout(() => { backdrop.style.display = 'none'; }, 250);
 }
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────
 
-function getColor(level) {
-    const colors = {
-        critical: '#ef4444',
-        high: '#f97316',
-        medium: '#f59e0b',
-        low: '#10b981',
-    };
-    return colors[level] || '#64748b';
+function section(heading, content) {
+    return `<div class="dsection"><div class="dsection-heading">${heading}</div>${content}</div>`;
 }
 
-function truncate(str, len) {
-    if (!str) return '—';
-    return str.length > len ? str.slice(0, len) + '…' : str;
+function field(key, val) {
+    return `<div class="dfield"><div class="dfield-key">${key}</div><div class="dfield-val">${val || '—'}</div></div>`;
+}
+
+function setText(id, v) { document.getElementById(id).textContent = v; }
+function pct(v) { return `${((v || 0) * 100).toFixed(1)}%`; }
+function fmtNum(n) { return Number(n).toLocaleString('en-IN'); }
+
+function shortId(id) {
+    if (!id) return '—';
+    return id.length > 16 ? id.slice(0, 4) + '…' + id.slice(-8) : id;
+}
+
+function color(lvl) {
+    return { critical: '#e5484d', high: '#e5884d', medium: '#d4a037', low: '#46a758' }[lvl] || '#606060';
+}
+
+function esc(s) {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
 }
