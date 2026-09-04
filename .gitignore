@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Data artifacts (generated)
+*.pkl
+*.joblib
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Node (for dashboard)
+node_modules/
+
+# Implementation plan (local only)
+implementation_plan.md
