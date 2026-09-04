@@ -126,7 +126,73 @@
                     <p class="section-desc" id="rzpDesc">Fetch real payments from Razorpay test-mode sandbox and run them through DisputeForge.</p>
                     <p class="rzp-status" id="rzpStatus"></p>
                 </div>
-                <button class="nav-action" id="runRzpBtn" onclick="runRazorpayAnalysis()">Fetch &amp; analyze</button>
+                <div class="rzp-btn-group">
+                    <button class="nav-action nav-action--secondary" id="openTestPayBtn" onclick="toggleTestPayPanel()">+ Test payment helper</button>
+                    <button class="nav-action" id="runRzpBtn" onclick="runRazorpayAnalysis()">Fetch &amp; analyze</button>
+                </div>
+            </div>
+
+            <!-- Test Payment Helper Panel -->
+            <div class="rzp-helper-panel" id="testPayPanel" style="display:none">
+                <div class="rzp-helper-inner">
+                    <div class="rzp-helper-head">
+                        <div>
+                            <h3 class="rzp-helper-title">Generate Razorpay Sandbox Payments</h3>
+                            <p class="rzp-helper-subtitle">Launch test checkout in 1 click or open pre-made payment links in a new tab.</p>
+                        </div>
+                        <div class="rzp-creds-badge" onclick="copyTestCard()" title="Click to copy card number">
+                            <span class="rzp-creds-label">Test Card:</span>
+                            <code class="rzp-creds-code" id="testCardNum">4111 1111 1111 1111</code>
+                            <span class="rzp-creds-extra">· 12/28 · CVV 123</span>
+                            <span class="rzp-copy-hint" id="copyHint">📋 Copy</span>
+                        </div>
+                    </div>
+
+                    <div class="rzp-scenarios-grid">
+                        <div class="rzp-scenario-card" onclick="launchCheckout(29990, 'Apex Electronics', 'Sony WH-1000XM5 Headphones')">
+                            <div class="rzp-sc-title">🎧 Electronics (High Risk)</div>
+                            <div class="rzp-sc-desc">Sony WH-1000XM5 Headphones</div>
+                            <div class="rzp-sc-meta">
+                                <span class="rzp-sc-amount">₹29,990</span>
+                                <span class="rzp-sc-btn">Pay in Modal →</span>
+                            </div>
+                        </div>
+                        <div class="rzp-scenario-card" onclick="launchCheckout(4999, 'DevStack Cloud', 'Annual Cloud Pro Subscription')">
+                            <div class="rzp-sc-title">💻 SaaS Cloud (Low Risk)</div>
+                            <div class="rzp-sc-desc">Annual Cloud Pro Subscription</div>
+                            <div class="rzp-sc-meta">
+                                <span class="rzp-sc-amount">₹4,999</span>
+                                <span class="rzp-sc-btn">Pay in Modal →</span>
+                            </div>
+                        </div>
+                        <div class="rzp-scenario-card" onclick="launchCheckout(18500, 'Horizon Getaways', 'Weekend Resort Booking - Goa')">
+                            <div class="rzp-sc-title">🏖️ Travel &amp; Hotel (Chargeback Risk)</div>
+                            <div class="rzp-sc-desc">Weekend Resort Booking - Goa</div>
+                            <div class="rzp-sc-meta">
+                                <span class="rzp-sc-amount">₹18,500</span>
+                                <span class="rzp-sc-btn">Pay in Modal →</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rzp-links-row" id="rzpLinksContainer">
+                        <span class="rzp-links-label">Or open direct payment links:</span>
+                        <a href="https://rzp.io/rzp/nTvZK5dP" target="_blank" rel="noopener" class="rzp-link-pill">Sony Headphones (₹29,990) ↗</a>
+                        <a href="https://rzp.io/rzp/xmJFUlF" target="_blank" rel="noopener" class="rzp-link-pill">Cloud Pro (₹4,999) ↗</a>
+                        <a href="https://rzp.io/rzp/B7XNlCHW" target="_blank" rel="noopener" class="rzp-link-pill">Goa Resort (₹18,500) ↗</a>
+                        <a href="https://rzp.io/rzp/YAGIp6b" target="_blank" rel="noopener" class="rzp-link-pill">Leather Jacket (₹12,499) ↗</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty state when 0 live payments found -->
+            <div class="rzp-empty-banner" id="rzpEmptyNotice" style="display:none">
+                <div class="rzp-empty-icon">💳</div>
+                <div>
+                    <div class="rzp-empty-title">No test payments found in your Razorpay sandbox yet</div>
+                    <div class="rzp-empty-text">Click <strong>+ Test payment helper</strong> above to create a test payment with card <code style="font-family:var(--f-mono);color:var(--c-accent)">4111 1111 1111 1111</code>, or open one of the direct links. Once paid, click <strong>Fetch &amp; analyze</strong>!</div>
+                </div>
+                <button class="nav-action" onclick="toggleTestPayPanel(true)">Open Helper</button>
             </div>
 
             <div id="rzpResults" style="display:none">
@@ -265,6 +331,7 @@
         Built for <a href="https://razorpay.com/buildathon/" target="_blank" rel="noopener">Razorpay AI Buildathon 2026</a> · Track 2: AI Risk Manager
     </footer>
 
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

@@ -98,6 +98,8 @@ async function checkHealth() {
         }
         // Razorpay status
         const rzp = d.razorpay || {};
+        rzpKeyId = rzp.key_id || '';
+        window.razorpayKeyId = rzpKeyId;
         if (rzp.is_live) {
             rzpEl.innerHTML = `<span class="rzp-dot rzp-dot--live"></span>Connected — ${rzp.is_test_mode ? 'test mode' : 'live mode'} (${rzp.key_id_prefix})`;
             rzpEl.className = 'rzp-status rzp-live';
@@ -293,6 +295,94 @@ function expandBody(body) {
     requestAnimationFrame(() => body.classList.add('expanded'));
 }
 
+let rzpKeyId = '';
+
+function toggleTestPayPanel(forceOpen) {
+    const panel = document.getElementById('testPayPanel');
+    if (!panel) return;
+    if (forceOpen === true) {
+        panel.style.display = 'block';
+    } else {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function copyTestCard() {
+    const num = '4111111111111111';
+    navigator.clipboard.writeText(num).then(() => {
+        const hint = document.getElementById('copyHint');
+        if (hint) {
+            hint.textContent = '✓ Copied!';
+            setTimeout(() => { hint.textContent = '📋 Copy'; }, 2000);
+        }
+    }).catch(() => {
+        alert('Card number: 4111 1111 1111 1111 (CVV: 123, Exp: 12/28)');
+    });
+}
+
+async function launchCheckout(amountInRupees, merchantName, description) {
+    const key = rzpKeyId || window.razorpayKeyId;
+    if (!key) {
+        alert('Razorpay key not available. Check that RAZORPAY_KEY_ID is set in .env and restart the server.');
+        return;
+    }
+
+    if (typeof Razorpay === 'undefined') {
+        alert('Razorpay Checkout SDK is loading or blocked by browser ad blocker. You can also click the direct payment links below!');
+        return;
+    }
+
+    try {
+        const orderRes = await fetch('/api/razorpay/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount: amountInRupees,
+                merchant_name: merchantName,
+                description: description
+            })
+        });
+        const orderData = await orderRes.json();
+
+        const options = {
+            key: key,
+            amount: orderData.amount || (amountInRupees * 100),
+            currency: 'INR',
+            name: merchantName,
+            description: description,
+            order_id: orderData.order_id,
+            image: 'https://razorpay.com/favicon.png',
+            prefill: {
+                name: 'Rahul Sharma',
+                email: 'rahul.test@example.com',
+                contact: '9876543210'
+            },
+            notes: {
+                merchant_name: merchantName,
+                category: 'sandbox_test',
+                test_card: '4111 1111 1111 1111'
+            },
+            theme: {
+                color: '#6366f1'
+            },
+            handler: function (response) {
+                const emptyEl = document.getElementById('rzpEmptyNotice');
+                if (emptyEl) emptyEl.style.display = 'none';
+                setTimeout(() => {
+                    runRazorpayAnalysis();
+                }, 1200);
+            }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+
+    } catch (e) {
+        console.error('Failed to launch checkout:', e);
+        alert('Could not start Razorpay checkout: ' + e.message);
+    }
+}
+
 // ── Razorpay Live Analysis ────────────────────────────
 
 async function runRazorpayAnalysis() {
@@ -307,14 +397,22 @@ async function runRazorpayAnalysis() {
         const res = await fetch('/api/razorpay/analyze', { method: 'POST' });
         const data = await res.json();
 
-        if (data.error && (!data.results || data.results.length === 0)) {
-            alert(data.error);
-            return;
-        }
-
         const results = data.results || [];
         const summary = data.summary || {};
         const source = data.source;
+
+        if (results.length === 0) {
+            const emptyEl = document.getElementById('rzpEmptyNotice');
+            if (emptyEl) emptyEl.style.display = 'flex';
+            const resEl = document.getElementById('rzpResults');
+            if (resEl) resEl.style.display = 'none';
+            toggleTestPayPanel(true);
+            return;
+        }
+
+        // Hide empty notice when payments exist
+        const emptyEl = document.getElementById('rzpEmptyNotice');
+        if (emptyEl) emptyEl.style.display = 'none';
 
         setText('rzpTotal', summary.total_payments || results.length);
         setText('rzpFlagged', summary.flagged_high_risk || 0);
@@ -365,6 +463,7 @@ async function runRazorpayAnalysis() {
         document.querySelector('.loading-label').textContent = 'Analyzing 270 transactions…';
     }
 }
+
 
 // ── Batch Analysis ────────────────────────────────────
 

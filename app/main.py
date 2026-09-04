@@ -204,6 +204,49 @@ async def razorpay_status():
     return JSONResponse(razorpay_feed.status())
 
 
+@app.get("/api/razorpay/test-links")
+async def get_test_links():
+    """Get active pre-generated test payment links."""
+    links_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_payment_links.json")
+    if os.path.exists(links_file):
+        with open(links_file, "r") as f:
+            links = json.load(f)
+        return JSONResponse({"links": links})
+    return JSONResponse({"links": []})
+
+
+@app.post("/api/razorpay/create-order")
+async def create_checkout_order(request: Request):
+    """Create an order for client-side Razorpay checkout."""
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    amount = float(body.get("amount", 2500))
+    merchant = body.get("merchant_name", "Apex Electronics")
+    desc = body.get("description", "DisputeForge Sandbox Payment")
+
+    order = razorpay_feed.create_order(
+        amount_in_rupees=amount,
+        receipt=f"rcpt_{int(datetime.now().timestamp())}",
+        notes={"merchant_name": merchant, "description": desc}
+    )
+
+    if not order:
+        return JSONResponse({"error": "Failed to create Razorpay order"}, status_code=400)
+
+    return JSONResponse({
+        "order_id": order.get("id"),
+        "amount": order.get("amount"),
+        "currency": order.get("currency", "INR"),
+        "key_id": razorpay_feed.key_id,
+        "merchant_name": merchant,
+        "description": desc,
+    })
+
+
 @app.post("/api/razorpay/analyze")
 async def analyze_razorpay_payments():
     """
@@ -214,9 +257,16 @@ async def analyze_razorpay_payments():
 
     if not transactions:
         return JSONResponse({
-            "error": "No payments found. Create some test-mode payments in the Razorpay dashboard first.",
+            "error": "No payments found in Razorpay sandbox. Use 'Create test payment' or pay via one of the sandbox links, then click 'Fetch & analyze'.",
             "razorpay_status": razorpay_feed.status(),
             "results": [],
+            "source": "razorpay_live" if razorpay_feed.is_live else "synthetic_fallback",
+            "is_test_mode": razorpay_feed.is_test_mode,
+            "summary": {
+                "total_payments": 0,
+                "flagged_high_risk": 0,
+                "deflections_generated": 0,
+            }
         }, status_code=200)
 
     results = []

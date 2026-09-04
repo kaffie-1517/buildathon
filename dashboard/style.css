@@ -1093,6 +1093,233 @@ body {
 .rzp-tag--live  { background: rgba(70, 167, 88, 0.10); color: var(--c-green); }
 .rzp-tag--synth { background: rgba(212, 160, 55, 0.10); color: var(--c-amber); }
 
+.rzp-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-action--secondary {
+    background: var(--c-surface);
+    color: var(--c-text);
+    border: 1px solid var(--c-border);
+}
+
+.nav-action--secondary:hover {
+    background: var(--c-surface-hover);
+    opacity: 1;
+}
+
+/* ── Test Payment Helper Panel ──────────────────────── */
+
+.rzp-helper-panel {
+    margin-top: 16px;
+    margin-bottom: 20px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+}
+
+.rzp-helper-inner {
+    padding: 16px 20px;
+}
+
+.rzp-helper-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+.rzp-helper-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 2px;
+}
+
+.rzp-helper-subtitle {
+    font-size: 12px;
+    color: var(--c-text-3);
+}
+
+.rzp-creds-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px dashed rgba(99, 102, 241, 0.35);
+    border-radius: var(--r-sm);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    user-select: none;
+}
+
+.rzp-creds-badge:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.6);
+}
+
+.rzp-creds-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c-text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rzp-creds-code {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-accent);
+}
+
+.rzp-creds-extra {
+    font-size: 11px;
+    color: var(--c-text-3);
+}
+
+.rzp-copy-hint {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--c-accent);
+    margin-left: 4px;
+}
+
+.rzp-scenarios-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+    .rzp-scenarios-grid { grid-template-columns: 1fr; }
+}
+
+.rzp-scenario-card {
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.rzp-scenario-card:hover {
+    border-color: var(--c-accent);
+    transform: translateY(-1px);
+}
+
+.rzp-sc-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 4px;
+}
+
+.rzp-sc-desc {
+    font-size: 11px;
+    color: var(--c-text-3);
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.rzp-sc-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid var(--c-border);
+}
+
+.rzp-sc-amount {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-family: var(--f-mono);
+}
+
+.rzp-sc-btn {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--c-accent);
+}
+
+.rzp-links-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--c-border);
+}
+
+.rzp-links-label {
+    font-size: 11px;
+    color: var(--c-text-3);
+}
+
+.rzp-link-pill {
+    font-size: 11px;
+    color: var(--c-text-2);
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+    padding: 3px 10px;
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.rzp-link-pill:hover {
+    color: var(--c-accent);
+    border-color: var(--c-accent);
+}
+
+/* ── Empty State Banner ─────────────────────────────── */
+
+.rzp-empty-banner {
+    margin-top: 16px;
+    background: rgba(212, 160, 55, 0.06);
+    border: 1px solid rgba(212, 160, 55, 0.25);
+    border-radius: var(--r-md);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: space-between;
+}
+
+.rzp-empty-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.rzp-empty-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 4px;
+}
+
+.rzp-empty-text {
+    font-size: 12px;
+    color: var(--c-text-2);
+    line-height: 1.5;
+}
+
 
 /* ── Responsive ─────────────────────────────────────── */
 

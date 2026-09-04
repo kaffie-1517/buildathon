@@ -68,6 +68,7 @@ class RazorpayFeed:
             "is_live": self.is_live,
             "is_test_mode": self.is_test_mode,
             "key_id_prefix": self.key_id[:12] + "…" if len(self.key_id) > 12 else self.key_id,
+            "key_id": self.key_id,
         }
 
     def fetch_recent(self, count: int = 50) -> list[dict]:
@@ -116,6 +117,22 @@ class RazorpayFeed:
         except Exception as e:
             print(f"[RazorpayFeed] Could not fetch disputes: {e}")
             return []
+
+    def create_order(self, amount_in_rupees: float, receipt: str = "df_test_rcpt", notes: dict = None) -> Optional[dict]:
+        """Create a Razorpay order in paise for checkout."""
+        if not self.is_live:
+            return None
+        try:
+            order = self._client.order.create({
+                "amount": int(round(amount_in_rupees * 100)),
+                "currency": "INR",
+                "receipt": receipt[:40],
+                "notes": notes or {},
+            })
+            return order
+        except Exception as e:
+            print(f"[RazorpayFeed] Order creation error: {e}")
+            return None
 
     # ── Normalisation ─────────────────────────────────────────────────────
 
