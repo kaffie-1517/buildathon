@@ -1,0 +1,41 @@
+{
+  "binary_classifier": {
+    "precision": 0.5789,
+    "recall": 0.6111,
+    "f1_score": 0.5946,
+    "auc_roc": 0.8501,
+    "confusion_matrix": {
+      "tn": 45,
+      "fp": 8,
+      "fn": 7,
+      "tp": 11
+    },
+    "false_positive_cost": "For every 11 real disputes caught, 8 false alarm(s)",
+    "test_size": 71,
+    "train_size": 199
+  },
+  "reason_classifier": {
+    "accuracy": 1.0,
+    "n_samples": 70,
+    "n_classes": 6
+  },
+  "feature_importance": {
+    "refund_requested": 0.1495,
+    "no_delivery_confirm": 0.1481,
+    "delivery_gap": 0.1273,
+    "repeat_disputer": 0.1073,
+    "amount_normalized": 0.0762,
+    "support_contacted": 0.0731,
+    "descriptor_mismatch": 0.0729,
+    "late_delivery": 0.0684,
+    "days_since_delivery": 0.0678,
+    "support_intensity": 0.0637,
+    "high_value": 0.0457,
+    "international": 0.0,
+    "digital_goods": 0.0,
+    "no_tracking": 0.0
+  },
+  "trained_at": "2026-09-04T18:34:03.926552",
+  "dataset_path": "/Users/jasmeetsingh/buildathon/data/transactions.csv",
+  "total_records": 270
+}
