@@ -204,13 +204,3 @@ buildathon/
 ```
 
 ---
-
-## Author
-
-**Jasmeet Singh** — [GitHub](https://github.com/kaffie-1517)
-
----
-
-## License
-
-MIT License
