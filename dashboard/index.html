@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=202">
 </head>
 <body>
 
@@ -19,6 +19,10 @@
             <span class="nav-context" id="navContext">Pipeline Demo</span>
         </div>
         <div class="nav-right">
+            <span class="nav-status ready" id="aiStatus" aria-live="polite" title="Sub-second inference powered by Groq LPU">
+                <span class="nav-status-dot" style="background:#818cf8;box-shadow:0 0 8px rgba(129,140,248,0.6)"></span>
+                Groq LPU Active
+            </span>
             <span class="nav-status" id="modelStatus" aria-live="polite">
                 <span class="nav-status-dot"></span>
                 Checking…
@@ -96,7 +100,7 @@
                     <div class="pipe-step-header">
                         <span class="pipe-step-num">3a</span>
                         <span class="pipe-step-title">Deflection message</span>
-                        <code class="tag tag--llm">Template</code>
+                        <code class="tag tag--llm" id="step3Tag">⚡ Groq LPU</code>
                         <span class="pipe-step-status" id="step3Status"></span>
                     </div>
                     <div class="pipe-step-body" id="step3Body"></div>
@@ -108,7 +112,7 @@
                     <div class="pipe-step-header">
                         <span class="pipe-step-num">3b</span>
                         <span class="pipe-step-title">Evidence package</span>
-                        <code class="tag tag--llm">Template</code>
+                        <code class="tag tag--llm" id="step4Tag">⚡ Groq LPU</code>
                         <span class="pipe-step-status" id="step4Status"></span>
                     </div>
                     <div class="pipe-step-body" id="step4Body"></div>
@@ -127,23 +131,23 @@
                     <p class="rzp-status" id="rzpStatus"></p>
                 </div>
                 <div class="rzp-btn-group">
-                    <button class="nav-action nav-action--secondary" id="openTestPayBtn" onclick="toggleTestPayPanel()">+ Test payment helper</button>
+                    <button class="nav-action nav-action--secondary" id="openTestPayBtn" onclick="var p=document.getElementById('testPayPanel'); if(p) p.style.display = (p.style.display==='none'?'block':'none');">⚙ Toggle helper</button>
                     <button class="nav-action" id="runRzpBtn" onclick="runRazorpayAnalysis()">Fetch &amp; analyze</button>
                 </div>
             </div>
 
-            <!-- Test Payment Helper Panel -->
-            <div class="rzp-helper-panel" id="testPayPanel" style="display:none">
+            <!-- Test Payment Helper Panel (Open by default) -->
+            <div class="rzp-helper-panel" id="testPayPanel">
                 <div class="rzp-helper-inner">
                     <div class="rzp-helper-head">
                         <div>
                             <h3 class="rzp-helper-title">Generate Razorpay Sandbox Payments</h3>
                             <p class="rzp-helper-subtitle">Launch test checkout in 1 click or open pre-made payment links in a new tab.</p>
                         </div>
-                        <div class="rzp-creds-badge" onclick="copyTestCard()" title="Click to copy card number">
-                            <span class="rzp-creds-label">Test Card:</span>
-                            <code class="rzp-creds-code" id="testCardNum">4111 1111 1111 1111</code>
-                            <span class="rzp-creds-extra">· 12/28 · CVV 123</span>
+                        <div class="rzp-creds-badge" onclick="copyTestCard()" title="Click to copy domestic card number">
+                            <span class="rzp-creds-label">Domestic Card:</span>
+                            <code class="rzp-creds-code" id="testCardNum">4718 6091 0820 4366</code>
+                            <span class="rzp-creds-extra">· 12/28 · CVV 123 · or Netbanking / UPI</span>
                             <span class="rzp-copy-hint" id="copyHint">📋 Copy</span>
                         </div>
                     </div>
@@ -277,14 +281,15 @@
                     </div>
                     <div class="card">
                         <h2 class="card-heading">Method selection</h2>
-                        <p class="card-desc">Each stage uses the right tool — not AI everywhere.</p>
+                        <p class="card-desc">Hybrid architecture: specialized ML + sub-second Groq LPU inference.</p>
                         <table class="method-table"><tbody>
-                            <tr><td><code class="tag tag--det">Rules</code></td><td>Risk signal extraction</td><td class="method-why">Business rules</td></tr>
-                            <tr><td><code class="tag tag--ml">XGBoost</code></td><td>Dispute probability</td><td class="method-why">Trees &gt; LLMs on tabular</td></tr>
-                            <tr><td><code class="tag tag--ml">Multi-class</code></td><td>Reason code</td><td class="method-why">Structured features</td></tr>
-                            <tr><td><code class="tag tag--det">Rules</code></td><td>Deadlines</td><td class="method-why">Calendar math</td></tr>
-                            <tr><td><code class="tag tag--llm">Gemini</code></td><td>Evidence narrative</td><td class="method-why">Contextual reasoning</td></tr>
-                            <tr><td><code class="tag tag--llm">Gemini</code></td><td>Deflection copy</td><td class="method-why">Empathy</td></tr>
+                            <tr><td><code class="tag tag--det">Rules</code></td><td>Risk signal extraction</td><td class="method-why">Deterministic business rules</td></tr>
+                            <tr><td><code class="tag tag--ml">XGBoost</code></td><td>Dispute probability</td><td class="method-why">Trees &gt; LLMs on tabular data</td></tr>
+                            <tr><td><code class="tag tag--ml">Multi-class</code></td><td>Reason code mapping</td><td class="method-why">Structured network taxonomy</td></tr>
+                            <tr><td><code class="tag tag--det">Rules</code></td><td>Compelling evidence &amp; SLA</td><td class="method-why">Card network scheme bylaws</td></tr>
+                            <tr><td><code class="tag tag--llm">Groq LPU</code></td><td>AI Risk Explainability</td><td class="method-why">Contextual merchant advisory (&lt;500ms)</td></tr>
+                            <tr><td><code class="tag tag--llm">Groq LPU</code></td><td>Pre-dispute deflection copy</td><td class="method-why">Empathetic tone synthesis (&lt;500ms)</td></tr>
+                            <tr><td><code class="tag tag--llm">Groq LPU</code></td><td>Evidence narrative</td><td class="method-why">Legal card-network representation</td></tr>
                         </tbody></table>
                     </div>
                 </div>
@@ -332,6 +337,6 @@
     </footer>
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=202"></script>
 </body>
 </html>

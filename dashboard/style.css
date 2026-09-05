@@ -1031,6 +1031,97 @@ body {
     font-weight: 500;
 }
 
+/* ── AI Intelligence Cards & Badges ─────────────────── */
+
+.ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.28);
+    padding: 2px 8px;
+    border-radius: var(--r-sm);
+    letter-spacing: 0.2px;
+}
+
+.ai-latency {
+    font-size: 10px;
+    font-family: var(--f-mono);
+    color: var(--c-text-3);
+}
+
+.ai-insight-box {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    border-radius: var(--r-md);
+}
+
+.ai-insight-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.ai-insight-summary {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--c-text);
+    font-style: italic;
+    margin-bottom: 10px;
+}
+
+.ai-insight-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ai-detail-item {
+    font-size: 11px;
+    color: var(--c-text-2);
+}
+
+.ai-detail-item strong {
+    color: var(--c-text);
+    font-weight: 500;
+}
+
+.ai-detail-item span {
+    color: #c7d2fe;
+}
+
+.ai-reasoning-callout {
+    margin-top: 10px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    background: rgba(99, 102, 241, 0.06);
+    border-left: 3px solid #818cf8;
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.ai-reasoning-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #c7d2fe;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ai-reasoning-body {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--c-text-2);
+}
+
 /* ── Batch Section ───────────────────────────────────── */
 
 .batch-section {

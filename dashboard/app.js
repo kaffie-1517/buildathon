@@ -86,16 +86,35 @@ document.addEventListener('DOMContentLoaded', checkHealth);
 
 async function checkHealth() {
     const el = document.getElementById('modelStatus');
+    const aiEl = document.getElementById('aiStatus');
     const rzpEl = document.getElementById('rzpStatus');
     try {
         const res = await fetch('/api/health');
         const d = await res.json();
         if (d.model_loaded) {
             el.className = 'nav-status ready';
-            el.innerHTML = '<span class="nav-status-dot"></span>Model ready';
+            el.innerHTML = '<span class="nav-status-dot"></span>XGBoost ready';
         } else {
             el.innerHTML = '<span class="nav-status-dot"></span>Model not trained';
         }
+
+        // AI Engine status (Groq LPU)
+        if (aiEl) {
+            const ai = d.ai || {};
+            if (ai.is_active) {
+                const modelShort = (ai.model || '').split('/').pop() || 'LPU';
+                aiEl.className = 'nav-status ready';
+                aiEl.innerHTML = `<span class="nav-status-dot" style="background:#818cf8;box-shadow:0 0 8px rgba(129,140,248,0.6)"></span>⚡ Groq LPU (${modelShort})`;
+                aiEl.title = `Real-time sub-second inference powered by Groq LPU (${ai.model})`;
+            } else if (ai.configured) {
+                aiEl.className = 'nav-status ready';
+                aiEl.innerHTML = `<span class="nav-status-dot" style="background:#d4a037"></span>Groq Configured`;
+            } else {
+                aiEl.className = 'nav-status';
+                aiEl.innerHTML = `<span class="nav-status-dot" style="background:#606060"></span>AI Offline (Rule Mode)`;
+            }
+        }
+
         // Razorpay status
         const rzp = d.razorpay || {};
         rzpKeyId = rzp.key_id || '';
@@ -215,6 +234,30 @@ function renderStep2(data) {
     const lvl = p.risk_level || 'low';
     const body = document.getElementById('step2Body');
 
+    let aiBox = '';
+    if (data.ai_insight) {
+        const ins = data.ai_insight;
+        aiBox = `
+            <div class="ai-insight-box">
+                <div class="ai-insight-head">
+                    <span class="ai-badge">⚡ Groq AI Risk Advisor</span>
+                    <span class="ai-latency">Real-time inference</span>
+                </div>
+                <div class="ai-insight-summary">${esc(ins.executive_summary)}</div>
+                <div class="ai-insight-details">
+                    <div class="ai-detail-item">
+                        <span class="ai-detail-label">Vulnerability</span>
+                        <span class="ai-detail-val">${esc(ins.primary_vulnerability)}</span>
+                    </div>
+                    <div class="ai-detail-item">
+                        <span class="ai-detail-label">Merchant Action</span>
+                        <span class="ai-detail-val">${esc(ins.merchant_action)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     body.innerHTML = `
         <div class="score-display">
             <span class="score-big" style="color:${color(lvl)}">${(prob * 100).toFixed(1)}%</span>
@@ -224,6 +267,7 @@ function renderStep2(data) {
                 <div class="score-meta-row">Model <span>${p.model_used || 'xgboost'}</span></div>
             </div>
         </div>
+        ${aiBox}
     `;
 
     expandBody(body);
@@ -231,12 +275,29 @@ function renderStep2(data) {
 
 function renderStep3(d) {
     const body = document.getElementById('step3Body');
+    const isGroq = (d.generated_by && d.generated_by.toLowerCase().includes('groq'));
+    const latencyHtml = d.latency_ms ? `<span class="ai-latency" style="margin-left:auto">⚡ ${d.latency_ms}ms</span>` : '';
+    const badgeHtml = isGroq ? `<span class="ai-badge" style="font-size:10px">⚡ Groq LPU</span>` : '';
+
+    let reasoningHtml = '';
+    if (d.ai_reasoning) {
+        reasoningHtml = `
+            <div class="ai-reasoning-callout">
+                <div class="ai-reasoning-title">🧠 Groq AI Strategy &amp; Empathy Reasoning</div>
+                <div class="ai-reasoning-body">${esc(d.ai_reasoning)}</div>
+            </div>
+        `;
+    }
+
     body.innerHTML = `
         <div class="msg-meta">
+            ${badgeHtml}
             <span class="msg-meta-item">Channel <b>${d.channel}</b></span>
+            <span class="msg-meta-item">Tone <b>${d.tone || 'empathetic'}</b></span>
             <span class="msg-meta-item">Urgency <b>${d.timing?.urgency || '—'}</b></span>
-            <span class="msg-meta-item">Send within <b>${d.timing?.send_within || '—'}</b></span>
+            ${latencyHtml}
         </div>
+        ${reasoningHtml}
         <div class="msg-box">${esc(d.subject ? `Subject: ${d.subject}\n\n${d.message}` : d.message)}</div>
     `;
     expandBody(body);
@@ -246,6 +307,7 @@ function renderStep4(e) {
     const body = document.getElementById('step4Body');
     const strength = e.evidence_strength?.rating || '—';
     const score = ((e.evidence_strength?.score || 0) * 100).toFixed(0);
+    const isGroq = (e.generation_method === 'groq');
 
     let checklist = '';
     if (e.evidence_checklist?.length) {
@@ -256,6 +318,7 @@ function renderStep4(e) {
 
     body.innerHTML = `
         <div class="msg-meta" style="margin-bottom:8px">
+            ${isGroq ? '<span class="ai-badge" style="font-size:10px">⚡ Groq LPU Legal Narrative</span>' : ''}
             <span class="msg-meta-item">Reason <b>${e.reason_code} — ${e.reason_code_name}</b></span>
             <span class="msg-meta-item">Deadline <b>${e.deadline_days} days</b></span>
             <span class="msg-meta-item">Strength <b>${strength} (${score}%)</b></span>
@@ -308,7 +371,7 @@ function toggleTestPayPanel(forceOpen) {
 }
 
 function copyTestCard() {
-    const num = '4111111111111111';
+    const num = '4718609108204366';
     navigator.clipboard.writeText(num).then(() => {
         const hint = document.getElementById('copyHint');
         if (hint) {
@@ -316,7 +379,7 @@ function copyTestCard() {
             setTimeout(() => { hint.textContent = '📋 Copy'; }, 2000);
         }
     }).catch(() => {
-        alert('Card number: 4111 1111 1111 1111 (CVV: 123, Exp: 12/28)');
+        alert('Domestic Visa: 4718 6091 0820 4366 (CVV: 123, Exp: 12/28)');
     });
 }
 
@@ -382,6 +445,10 @@ async function launchCheckout(amountInRupees, merchantName, description) {
         alert('Could not start Razorpay checkout: ' + e.message);
     }
 }
+
+window.toggleTestPayPanel = toggleTestPayPanel;
+window.copyTestCard = copyTestCard;
+window.launchCheckout = launchCheckout;
 
 // ── Razorpay Live Analysis ────────────────────────────
 
@@ -593,21 +660,44 @@ function openDrawer(result) {
         `);
     }
 
+    if (result.ai_insight) {
+        const ins = result.ai_insight;
+        html += section('⚡ AI Risk Advisor (Groq LPU)', `
+            <div class="ai-insight-box" style="margin:0">
+                <div class="ai-insight-summary">${esc(ins.executive_summary)}</div>
+                <div class="ai-insight-details">
+                    <div class="ai-detail-item"><span class="ai-detail-label">Vulnerability</span><span class="ai-detail-val">${esc(ins.primary_vulnerability)}</span></div>
+                    <div class="ai-detail-item"><span class="ai-detail-label">Action</span><span class="ai-detail-val">${esc(ins.merchant_action)}</span></div>
+                </div>
+            </div>
+        `);
+    }
+
     if (result.deflection) {
         const d = result.deflection;
-        html += section('Pre-dispute deflection', `
+        const isGroq = (d.generated_by && d.generated_by.toLowerCase().includes('groq'));
+        html += section(`Pre-dispute deflection ${isGroq ? '<span class="ai-badge" style="margin-left:8px;font-size:10px">⚡ Groq LPU</span>' : ''}`, `
             <div class="dfield-grid">
                 ${field('Channel', d.channel)}
+                ${field('Tone', d.tone || 'empathetic')}
                 ${field('Urgency', d.timing?.urgency)}
                 ${field('Send within', d.timing?.send_within)}
+                ${d.latency_ms ? field('Groq Latency', `${d.latency_ms}ms`) : ''}
             </div>
+            ${d.ai_reasoning ? `
+                <div class="ai-reasoning-callout" style="margin-top:10px">
+                    <div class="ai-reasoning-title">🧠 Groq Strategic Rationale</div>
+                    <div class="ai-reasoning-body">${esc(d.ai_reasoning)}</div>
+                </div>
+            ` : ''}
             <div class="dpre" style="margin-top:10px">${esc(d.message)}</div>
         `);
     }
 
     if (result.evidence_package) {
         const e = result.evidence_package;
-        html += section('Evidence package', `
+        const isGroq = (e.generation_method === 'groq');
+        html += section(`Evidence package ${isGroq ? '<span class="ai-badge" style="margin-left:8px;font-size:10px">⚡ Groq Legal Narrative</span>' : ''}`, `
             <div class="dfield-grid">
                 ${field('Reason', `${e.reason_code} — ${e.reason_code_name}`)}
                 ${field('Network', e.network)}
