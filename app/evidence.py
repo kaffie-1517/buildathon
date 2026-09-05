@@ -18,6 +18,7 @@ except ImportError:
     HAS_GEMINI = False
 
 from dotenv import load_dotenv
+from app.ai_engine import AIEngine
 
 load_dotenv()
 
@@ -133,12 +134,13 @@ class EvidenceOrchestrator:
     """
 
     def __init__(self):
+        self.ai_engine = AIEngine()
         self.gemini_model = None
         if HAS_GEMINI and os.getenv("GEMINI_API_KEY"):
             genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
             self.gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
-    def generate_evidence_package(self, txn: dict, prediction: dict, signals: dict) -> dict:
+    def generate_evidence_package(self, txn: dict, prediction: dict, signals: dict, use_ai: bool = True) -> dict:
         """
         Generate a complete evidence package for a flagged transaction.
 
@@ -146,6 +148,7 @@ class EvidenceOrchestrator:
             txn: Transaction data
             prediction: Model prediction result
             signals: Triggered risk signals
+            use_ai: Whether to use remote AI generation (False for fast batch processing)
 
         Returns:
             Evidence package dict with narrative, checklist, and metadata
@@ -164,7 +167,7 @@ class EvidenceOrchestrator:
         checklist = self._build_checklist(txn, template)
 
         # Generate narrative (LLM or template fallback)
-        narrative = self._generate_narrative(txn, template, prediction, checklist, reason_info)
+        narrative = self._generate_narrative(txn, template, prediction, checklist, reason_info, use_ai=use_ai)
 
         # Evidence strength score (deterministic)
         strength = self._score_evidence_strength(checklist)
@@ -181,7 +184,7 @@ class EvidenceOrchestrator:
             "narrative": narrative,
             "evidence_strength": strength,
             "generated_at": datetime.now().isoformat(),
-            "generation_method": "gemini" if self.gemini_model else "template",
+            "generation_method": "groq" if (use_ai and self.ai_engine.is_active) else "template",
         }
 
     def _build_checklist(self, txn: dict, template: dict) -> list[dict]:
@@ -234,7 +237,7 @@ class EvidenceOrchestrator:
 
     def _generate_narrative(
         self, txn: dict, template: dict, prediction: dict,
-        checklist: list, reason_info: dict
+        checklist: list, reason_info: dict, use_ai: bool = True
     ) -> str:
         """Generate a compelling evidence narrative using LLM or template."""
 
@@ -256,7 +259,9 @@ class EvidenceOrchestrator:
             "missing_evidence": [c["item"] for c in checklist if not c["available"]],
         }
 
-        if self.gemini_model:
+        if use_ai and self.ai_engine.is_active:
+            return self.ai_engine.generate_evidence_narrative(context, template, use_llm=True)
+        elif use_ai and self.gemini_model:
             return self._generate_with_gemini(context, template)
         else:
             return self._generate_template_narrative(context, template)

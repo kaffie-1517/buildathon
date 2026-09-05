@@ -23,6 +23,7 @@ from app.predictor import DisputePredictor
 from app.evidence import EvidenceOrchestrator
 from app.deflector import DeflectionEngine
 from app.razorpay_feed import RazorpayFeed
+from app.ai_engine import AIEngine
 
 # ── App Setup ─────────────────────────────────────────────────────────────
 
@@ -31,6 +32,14 @@ app = FastAPI(
     description="Pre-Dispute Deflection + Intelligent Evidence Orchestrator",
     version="1.0.0",
 )
+
+@app.middleware("http")
+async def add_no_cache_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # Mount static files for dashboard
 DASHBOARD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard")
@@ -42,6 +51,7 @@ predictor = DisputePredictor()
 evidence_engine = EvidenceOrchestrator()
 deflection_engine = DeflectionEngine()
 razorpay_feed = RazorpayFeed()
+ai_engine = AIEngine()
 
 # Audit trail (in-memory for demo, would be SQLite/DB in production)
 audit_trail = []
@@ -85,6 +95,7 @@ class AnalysisResponse(BaseModel):
     risk_signals: dict
     triggered_signals: list
     prediction: dict
+    ai_insight: Optional[dict] = None
     deflection: Optional[dict] = None
     evidence_package: Optional[dict] = None
     audit_entry: dict
@@ -132,7 +143,7 @@ async def analyze_batch():
     with open(csv_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            result = _process_transaction(row)
+            result = _process_transaction(row, use_ai=False)
             results.append(result)
 
     # Compute batch metrics
@@ -195,7 +206,14 @@ async def health():
         "status": "ok",
         "model_loaded": predictor.model is not None,
         "razorpay": razorpay_feed.status(),
+        "ai": ai_engine.status(),
     }
+
+
+@app.get("/api/ai/status")
+async def ai_status():
+    """Get Groq AI Engine status."""
+    return JSONResponse(ai_engine.status())
 
 
 @app.get("/api/razorpay/status")
@@ -297,7 +315,7 @@ async def analyze_razorpay_payments():
 
 # ── Internal Processing ───────────────────────────────────────────────────
 
-def _process_transaction(txn: dict) -> dict:
+def _process_transaction(txn: dict, use_ai: bool = True) -> dict:
     """Process a single transaction through the full pipeline."""
 
     # Stage 1: Extract risk signals (deterministic)
@@ -307,15 +325,18 @@ def _process_transaction(txn: dict) -> dict:
     # Stage 2: Predict dispute probability (ML)
     prediction = predictor.predict(signals)
 
+    # Stage 2b: AI Risk Explainability & Advisor (Groq LLM or fast heuristic fallback)
+    ai_insight = ai_engine.generate_risk_insight(txn, prediction["dispute_probability"], triggered, use_llm=use_ai)
+
     # Stage 3a: Generate deflection if high risk
     deflection = None
     if prediction["dispute_probability"] >= 0.5:
-        deflection = deflection_engine.generate_deflection(txn, prediction)
+        deflection = deflection_engine.generate_deflection(txn, prediction, use_ai=use_ai)
 
     # Stage 3b: Generate evidence package if high risk
     evidence = None
     if prediction["dispute_probability"] >= 0.6:
-        evidence = evidence_engine.generate_evidence_package(txn, prediction, triggered)
+        evidence = evidence_engine.generate_evidence_package(txn, prediction, triggered, use_ai=use_ai)
 
     # Audit trail entry
     audit_entry = {
@@ -327,6 +348,7 @@ def _process_transaction(txn: dict) -> dict:
         "deflection_generated": deflection is not None,
         "evidence_generated": evidence is not None,
         "model_used": prediction.get("model_used", "unknown"),
+        "ai_engine": ai_engine.active_model if ai_engine.is_active else "offline",
     }
     audit_trail.append(audit_entry)
 
@@ -341,6 +363,7 @@ def _process_transaction(txn: dict) -> dict:
         "risk_signals": signals.to_dict(),
         "triggered_signals": triggered,
         "prediction": prediction,
+        "ai_insight": ai_insight,
         "deflection": deflection,
         "evidence_package": evidence,
         "audit_entry": audit_entry,
